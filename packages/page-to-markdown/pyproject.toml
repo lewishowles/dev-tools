@@ -1,0 +1,16 @@
+[project]
+name = "page-to-markdown"
+version = "0.1.0"
+description = "Convert a URL, file, or piped HTML into compact Markdown."
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+page-to-markdown = "page_to_markdown.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/page_to_markdown"]
