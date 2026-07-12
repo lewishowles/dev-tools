@@ -1,13 +1,14 @@
 """CLI entry point for page-to-markdown.
 
-Handles input from a URL, local file, or stdin, and writes raw or near-raw
-content to stdout or a file. No parsing or conversion yet.
+Handles input from a URL, local file, or stdin, selects the main content
+region, and writes selected HTML to stdout or a file. No Markdown conversion.
 """
 
 import argparse
 import sys
 
 from page_to_markdown.fetch import FetchError, fetch_url, read_file
+from page_to_markdown.select import select_content
 
 
 def build_parser():
@@ -53,6 +54,8 @@ def main(argv=None):
     except FetchError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
+
+    content = select_content(content)
 
     if args.output:
         try:
