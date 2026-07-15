@@ -1,12 +1,13 @@
 """CLI entry point for page-to-markdown.
 
 Handles input from a URL, local file, or stdin, selects the main content
-region, and writes selected HTML to stdout or a file. No Markdown conversion.
+region, converts it to Markdown, and writes it to stdout or a file.
 """
 
 import argparse
 import sys
 
+from page_to_markdown.convert import convert_to_markdown
 from page_to_markdown.fetch import FetchError, fetch_url, read_file
 from page_to_markdown.select import select_content
 
@@ -56,6 +57,12 @@ def main(argv=None):
         return 1
 
     content = select_content(content)
+    base_url = (
+        args.source
+        if args.source and args.source.startswith(("http://", "https://"))
+        else None
+    )
+    content = convert_to_markdown(content, base_url=base_url)
 
     if args.output:
         try:
