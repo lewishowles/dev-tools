@@ -48,7 +48,17 @@ export async function runCli(argumentsList: string[]): Promise<number> {
 
 			console.log(`Loaded DOM: ${source} (${elementCount} elements)`);
 
-			const violations = await runAxe(loadedPage.page);
+			const customViolations = await runAriaLabelChecks(
+				loadedPage.page,
+				axeViolations.map(({ target }) => target),
+			);
+
+			const violations = [
+				...axeViolations,
+				...customViolations.map((violation) => ({
+					...violation,
+					id: `custom-${violation.id}`,
+				})),
 
 			if (violations.length === 0) {
 				console.log("No accessibility violations found.");
