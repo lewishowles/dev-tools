@@ -8,6 +8,7 @@ import argparse
 import json
 import sys
 
+from page_to_markdown.clipboard import ClipboardError, copy_to_clipboard
 from page_to_markdown.convert import convert_to_markdown
 from page_to_markdown.fetch import FetchError, fetch_url, read_file
 from page_to_markdown.report import build_metadata, build_report
@@ -33,6 +34,11 @@ def build_parser():
         "--output",
         default=None,
         help="Write output to this path instead of stdout.",
+    )
+    parser.add_argument(
+        "--copy",
+        action="store_true",
+        help="Copy generated Markdown to the system clipboard.",
     )
     parser.add_argument(
         "--confidence",
@@ -113,6 +119,13 @@ def main(argv=None):
                 return 1
     else:
         sys.stdout.write(content)
+
+    if args.copy:
+        try:
+            copy_to_clipboard(content)
+        except ClipboardError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
 
     return 0
 
