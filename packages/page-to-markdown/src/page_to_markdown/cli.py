@@ -13,6 +13,7 @@ from page_to_markdown.convert import convert_to_markdown
 from page_to_markdown.fetch import FetchError, fetch_url, read_file
 from page_to_markdown.report import build_metadata, build_report
 from page_to_markdown.select import select_content
+from page_to_markdown.style import hint, row, span, status
 
 
 def build_parser():
@@ -53,6 +54,36 @@ def build_parser():
     return parser
 
 
+def _copy_preview(content):
+    """Build a formatted terminal preview: length row, muted preview, truncation hint.
+
+    Source is omitted here since the confidence report on stderr already reports it.
+    """
+    character_count = len(content)
+    line_count = len(content.splitlines())
+    truncated = character_count > 300
+    preview_text = content[:300]
+
+    if truncated:
+        preview_text += "..."
+
+    preview_lines = [
+        row(
+            "Length",
+            f"{character_count} characters, {line_count} lines",
+            result="info",
+        ),
+        "",
+        span(preview_text, tone="muted"),
+    ]
+
+    if truncated:
+        preview_lines.append("")
+        preview_lines.append(hint(f"{character_count - 300} more characters"))
+
+    return "\n".join(preview_lines) + "\n"
+
+
 def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -91,6 +122,7 @@ def main(argv=None):
         args.source if args.source else "stdin",
     )
     print(report, file=sys.stderr)
+    print(file=sys.stderr)
 
     if args.confidence and not args.output:
         sys.stdout.write(f"{report}\n\n")
@@ -117,15 +149,36 @@ def main(argv=None):
             except OSError as e:
                 print(f"error: could not write to {metadata_path}: {e}", file=sys.stderr)
                 return 1
-    else:
+    elif not args.copy:
         sys.stdout.write(content)
 
     if args.copy:
+        preview = _copy_preview(content) if not args.output else ""
+
         try:
             copy_to_clipboard(content)
-        except ClipboardError as e:
-            print(f"error: {e}", file=sys.stderr)
+        except ClipboardError as error:
+            if not args.output:
+                sys.stdout.write(content)
+
+            print(file=sys.stderr)
+            print(
+                status("failed", "Clipboard copy failed", str(error)),
+                file=sys.stderr,
+            )
             return 1
+
+        if not args.output:
+            sys.stdout.write(preview)
+            print()
+
+        print(
+            status(
+                "success",
+                "Copied to clipboard",
+                f"{len(content)} characters, {len(content.splitlines())} lines",
+            )
+        )
 
     return 0
 
