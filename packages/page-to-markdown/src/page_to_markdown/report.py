@@ -10,13 +10,9 @@ from page_to_markdown.select import (
     _DomNode,
     _find_all,
     _find_first,
-    _text_density,
 )
 
 
-BLOCK_TAGS = frozenset(
-    ["div", "section", "p", "ul", "ol", "table", "blockquote", "pre"]
-)
 HEADING_TAGS = frozenset(["h1", "h2", "h3", "h4", "h5", "h6"])
 SHORT_OUTPUT_CHARS = 40
 SCRIPT_TAG_MINIMUM = 3
@@ -86,11 +82,7 @@ def build_report(
 
     if reasons:
         verdict = "low-confidence"
-    elif len(markdown.strip()) < 120 or selected_root in {
-        "body",
-        "density-fallback",
-        "root",
-    }:
+    elif len(markdown.strip()) < 120:
         verdict = "medium-confidence"
     else:
         verdict = "high-confidence"
@@ -136,7 +128,7 @@ def _parse(html: str) -> _CountingDomBuilder:
 
 
 def _content_root_label(root: _DomNode) -> str:
-    """Mirror select_content's root-selection labels without changing it."""
+    """Report the semantic tier selected before the body or root fallback."""
     if _find_first(root, lambda node: node.tag == "main"):
         return "main"
     if _find_first(root, lambda node: node.tag == "article"):
@@ -145,13 +137,6 @@ def _content_root_label(root: _DomNode) -> str:
         root, lambda node: node.attrs.get("role", "").lower() == "main"
     ):
         return "role=main"
-
-    candidates = _find_all(root, lambda node: node.tag in BLOCK_TAGS)
-    if candidates:
-        best = max(candidates, key=lambda node: _text_density(node))
-        if best.text_length > 0:
-            return "density-fallback"
-
     if _find_first(root, lambda node: node.tag == "body"):
         return "body"
     return "root"

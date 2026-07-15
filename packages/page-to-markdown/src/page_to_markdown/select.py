@@ -2,7 +2,7 @@
 
 Strips page chrome (script, style, nav, header, footer, etc.) and selects
 the main content region using deterministic rules: main, then article,
-then [role=main], then highest-text-density fallback.
+then [role=main], followed by the remaining body content or root.
 
 Uses only the standard library (html.parser) to preserve nested markup
 for later Markdown conversion.
@@ -163,59 +163,26 @@ def _find_all(root, predicate, results=None):
     return results
 
 
-def _text_density(node):
-    """Text-to-tag ratio for a node. Higher means more text-dense."""
-    tc = node.tag_count
-    if tc == 0:
-        return 0.0
-    return node.text_length / tc
-
-
 def select_content(html):
-    """Select the main content region from an HTML string.
-
-    Returns the selected region as an HTML string with page chrome stripped.
-    Rules, in order:
-    1. First <main> element.
-    2. First <article> element.
-    3. First element with role="main".
-    4. Highest-text-density block-level element as fallback.
-    5. The body (or root) if nothing better is found.
-    """
+    """Select semantic content, falling back to the body or root if absent."""
     builder = _DomBuilder()
     builder.feed(html)
     builder.close()
     root = builder.root
 
-    # 1. <main>
     main = _find_first(root, lambda n: n.tag == "main")
     if main:
         return _serialize(main)
 
-    # 2. <article>
     article = _find_first(root, lambda n: n.tag == "article")
     if article:
         return _serialize(article)
 
-    # 3. [role=main]
     role_main = _find_first(
         root, lambda n: n.attrs.get("role", "").lower() == "main"
     )
     if role_main:
         return _serialize(role_main)
 
-    # 4. Highest-text-density block-level element
-    block_tags = frozenset(
-        ["div", "section", "p", "ul", "ol", "table", "blockquote", "pre"]
-    )
-    candidates = _find_all(root, lambda n: n.tag in block_tags)
-    if candidates:
-        best = max(candidates, key=lambda n: _text_density(n))
-        if best.text_length > 0:
-            return _serialize(best)
-
-    # 5. Fallback: serialize the body or the whole root
     body = _find_first(root, lambda n: n.tag == "body")
-    if body:
-        return _serialize(body)
-    return _serialize(root)
+    return _serialize(body or root)
