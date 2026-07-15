@@ -35,6 +35,7 @@ export async function runAriaLabelChecks(
 				"subscript",
 				"superscript",
 			]);
+
 			const requiredNameRoles = new Set([
 				"alertdialog",
 				"application",
@@ -71,6 +72,7 @@ export async function runAriaLabelChecks(
 				"treegrid",
 				"treeitem",
 			]);
+
 			const contentNameRoles = new Set([
 				"button",
 				"cell",
@@ -91,6 +93,7 @@ export async function runAriaLabelChecks(
 				"tooltip",
 				"treeitem",
 			]);
+
 			const implicitRoles: Record<string, string> = {
 				caption: "caption",
 				code: "code",
@@ -105,6 +108,7 @@ export async function runAriaLabelChecks(
 				sub: "subscript",
 				sup: "superscript",
 			};
+
 			const violations: AriaLabelViolation[] = [];
 
 			const getRole = (element: Element): string | null => {

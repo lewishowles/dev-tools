@@ -1,0 +1,9 @@
+{
+	"extends": ["./node_modules/@lewishowles/lint-config/base.json"],
+	"env": {
+		"builtin": true,
+		"browser": true,
+		"node": true
+	},
+	"ignorePatterns": ["**/dist/*", ".codebase-memory/**", "node_modules/**"]
+}

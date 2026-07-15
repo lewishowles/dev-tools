@@ -152,6 +152,15 @@ def test_main_single_source_preserves_exact_markdown_output(capsys) -> None:
     assert captured.out == read_file(FIXTURES / "docs-page-with-code.expected.md")
 
 
+def test_main_confidence_report_renders_aligned_rows(capsys) -> None:
+    exit_code = main([str(FIXTURES / "simple.html"), "--confidence"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "Selected content root  body" in captured.out
+    assert "x Verdict              low-confidence" in captured.out
+
+
 def test_main_keeps_failed_source_in_batch_output(tmp_path, capsys) -> None:
     missing_source = tmp_path / "missing.html"
     good_source = FIXTURES / "simple.html"
@@ -163,7 +172,7 @@ def test_main_keeps_failed_source_in_batch_output(tmp_path, capsys) -> None:
     assert f"## Failed: {missing_source}" in captured.out
     assert "**Failed to fetch:**" in captured.out
     assert "## Simple fixture" in captured.out
-    assert f"Source  {missing_source}" in captured.err
+    assert f"Source   {missing_source}" in captured.err
     assert "Error " in captured.err
 
 
@@ -178,7 +187,7 @@ def test_main_returns_failure_without_output_when_all_sources_fail(tmp_path, cap
 
     assert exit_code == 1
     assert captured.out == ""
-    assert all(f"Source  {source}" in captured.err for source in missing_sources)
+    assert all(f"Source   {source}" in captured.err for source in missing_sources)
 
 
 def test_main_uses_source_heading_when_batch_document_has_no_title_or_heading(

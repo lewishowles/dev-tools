@@ -14,7 +14,7 @@ from page_to_markdown.convert import convert_to_markdown
 from page_to_markdown.fetch import FetchError, fetch_url, read_file
 from page_to_markdown.report import ConfidenceReport, build_metadata, build_report
 from page_to_markdown.select import select_content
-from page_to_markdown.style import hint, row, span, status
+from page_to_markdown.style import hint, row, row_group, span, status
 
 
 @dataclass
@@ -74,48 +74,36 @@ _VERDICT_TONES = {
 }
 
 
-def _aligned_rows(entries):
-    """Render a group of (label, value[, result]) rows aligned into columns.
-
-    row() renders one line per call with no shared state between calls, so the
-    caller computes a shared label_width up front, matching cli-style's own
-    convention for grouped rows (see its gallery's "Rows" section, where the
-    flagged "Bundle" row still lines up with its neutral siblings).
-    """
-    label_width = max(len(entry[0]) for entry in entries)
-    return [
-        row(entry[0], entry[1], result=entry[2] if len(entry) > 2 else "", label_width=label_width)
-        for entry in entries
-    ]
-
-
-def _render_report(result):
+def _render_report(result) -> str:
     """Render one source's report fields directly through cli-style, no string parsing."""
     if result.error is not None:
-        return _aligned_rows(
+        return row_group(
             [
-                ("Source", result.source),
-                ("Error", str(result.error), "failed"),
+                {"label": "Source", "value": result.source},
+                {"label": "Error", "value": str(result.error), "result": "failed"},
             ]
         )
 
     report = result.report
-    lines = _aligned_rows(
+    output = row_group(
         [
-            ("Source", report.source),
-            ("Selected content root", report.selected_content_root),
-            (
-                "Removed elements",
-                f"{report.removed_elements_summary} (total={report.removed_elements_total})",
-            ),
-            ("Links", str(report.links)),
-            ("Code blocks", str(report.code_blocks)),
-            ("Verdict", report.verdict, _VERDICT_TONES.get(report.verdict, "info")),
+            {"label": "Source", "value": report.source},
+            {"label": "Selected content root", "value": report.selected_content_root},
+            {
+                "label": "Removed elements",
+                "value": f"{report.removed_elements_summary} (total={report.removed_elements_total})",
+            },
+            {"label": "Links", "value": str(report.links)},
+            {"label": "Code blocks", "value": str(report.code_blocks)},
+            {
+                "label": "Verdict",
+                "value": report.verdict,
+                "result": _VERDICT_TONES.get(report.verdict, "info"),
+            },
         ]
     )
-    lines.extend(hint(reason) for reason in report.reasons)
 
-    return lines
+    return "\n".join([output, *(hint(reason) for reason in report.reasons)])
 
 
 def _copy_preview(content):
@@ -213,7 +201,7 @@ def main(argv=None):
         )
 
     for result in results:
-        print("\n".join(_render_report(result)), file=sys.stderr)
+        print(_render_report(result), file=sys.stderr)
         print(file=sys.stderr)
 
     successful_results = [result for result in results if result.content is not None]
@@ -233,7 +221,7 @@ def main(argv=None):
         content = "\n\n---\n\n".join(blocks) + "\n"
 
     if args.confidence and not args.output:
-        formatted = "\n\n".join("\n".join(_render_report(result)) for result in results)
+        formatted = "\n\n".join(_render_report(result) for result in results)
         sys.stdout.write(f"{formatted}\n\n")
 
     if args.output:

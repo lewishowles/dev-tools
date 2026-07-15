@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# Vendored from cli-style; keep formatting as-is.
 # Render caller data through the shared cli-style binary.
 
 from __future__ import annotations
@@ -125,13 +124,39 @@ def status(
 #     Row value.
 # @param  {str}  result
 #     Optional result type for a symbol and tone.
+# @param  {int|None}  label_width
+#     Optional minimum label width.
+# @param  {str|None}  label_colour
+#     Optional label colour token.
+# @param  {str|None}  value_colour
+#     Optional value colour token.
+# @param  {str|None}  separator
+#     Optional text between the label and value.
 def row(
 	label: str,
 	value: str,
 	result: str = "",
+	label_width: int | None = None,
+	label_colour: str | None = None,
+	value_colour: str | None = None,
+	separator: str | None = None,
 	**kwargs: Any,
 ) -> str:
-	return render("row", {"label": label, "value": value, "result": result}, **kwargs)
+	data = {
+		"label": label,
+		"value": value,
+		"result": result,
+		"labelWidth": label_width,
+		"separator": separator,
+	}
+
+	if label_colour is not None:
+		data["labelColour"] = label_colour
+
+	if value_colour is not None:
+		data["valueColour"] = value_colour
+
+	return render("row", data, **kwargs)
 
 
 # Render an inline span from Python values.
@@ -140,23 +165,46 @@ def row(
 #     Span text.
 # @param  {str}  tone
 #     Optional colour tone, defaulting to info.
+# @param  {str|None}  weight
+#     Optional ANSI text weight.
 def span(
 	value: str,
 	tone: str = "info",
+	weight: str | None = None,
 	**kwargs: Any,
 ) -> str:
-	return render("span", {"value": value, "tone": tone}, **kwargs)
+	return render("span", {"value": value, "tone": tone, "weight": weight}, **kwargs)
 
 
 # Render a divider from a Python value.
 #
 # @param  {str}  label
 #     Optional divider label.
+# @param  {int|None}  divider_width
+#     Optional divider width.
+# @param  {str|None}  divider_colour
+#     Optional divider colour token.
+# @param  {str|None}  label_colour
+#     Optional label colour token.
 def divider(
 	label: str = "",
+	divider_width: int | None = None,
+	divider_colour: str | None = None,
+	label_colour: str | None = None,
 	**kwargs: Any,
 ) -> str:
-	return render("divider", {"label": label}, **kwargs)
+	data = {
+		"label": label,
+		"dividerWidth": divider_width,
+	}
+
+	if divider_colour is not None:
+		data["dividerColour"] = divider_colour
+
+	if label_colour is not None:
+		data["labelColour"] = label_colour
+
+	return render("divider", data, **kwargs)
 
 
 # Render a hint from a Python value.
