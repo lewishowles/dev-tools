@@ -161,7 +161,6 @@ def main(argv=None):
             if not args.output:
                 sys.stdout.write(content)
 
-            print(file=sys.stderr)
             print(
                 status("failed", "Clipboard copy failed", str(error)),
                 file=sys.stderr,

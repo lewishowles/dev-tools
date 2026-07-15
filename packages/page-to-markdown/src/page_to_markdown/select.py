@@ -31,7 +31,9 @@ class _DomNode:
 
     def __init__(self, tag, attrs=None, parent=None):
         self.tag = tag
-        self.attrs = dict(attrs) if attrs else {}
+        # HTMLParser reports valueless attributes (e.g. `<img alt>`) with a
+        # None value; normalise to "" so every consumer can treat attrs as strings.
+        self.attrs = {name: value or "" for name, value in attrs} if attrs else {}
         self.children = []
         self.parent = parent
         self.text = ""
@@ -127,10 +129,9 @@ def _serialize(node):
             parts.append(child.text)
             continue
 
-        attrs_str = "".join(
-            f' {k}' if v is None else f' {k}="{v}"'
-            for k, v in child.attrs.items()
-        )
+        # _DomNode never stores None for an attribute value (see __init__), so
+        # a valueless attribute like `alt` always serialises as `alt=""`.
+        attrs_str = "".join(f' {k}="{v}"' for k, v in child.attrs.items())
 
         if child.tag in VOID_TAGS:
             parts.append(f"<{child.tag}{attrs_str}>")

@@ -35,6 +35,7 @@ def extract_fixture(name: str, base_url: str | None = None) -> tuple[str, str, s
         "js-app-shell.html",
         "relative-links.html",
         "short-page.html",
+        "valueless-attributes.html",
     ],
 )
 def test_every_fixture_runs_through_local_extraction_pipeline(fixture_name: str) -> None:
@@ -106,6 +107,12 @@ def test_low_confidence_fixtures_include_actionable_report_reasons(
 
     assert "verdict: low-confidence" in report
     assert f"reason: {reason}" in report
+
+
+def test_valueless_img_attributes_do_not_crash_conversion() -> None:
+    _, _, markdown = extract_fixture("valueless-attributes.html")
+
+    assert "![Company logo](logo.png)" in markdown
 
 
 def test_local_fixture_metadata_contains_title_without_inventing_a_url() -> None:
