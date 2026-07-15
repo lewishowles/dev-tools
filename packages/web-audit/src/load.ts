@@ -41,9 +41,11 @@ function getWebUrl(source: string): URL | null {
 export async function loadPage(source: string): Promise<LoadedPage> {
 	const webUrl = getWebUrl(source);
 	const browser = await chromium.launch();
-	const page = await browser.newPage();
 
 	try {
+		const context = await browser.newContext();
+		const page = await context.newPage();
+
 		if (webUrl) {
 			await page.goto(webUrl.href, { waitUntil: "domcontentloaded" });
 		} else {

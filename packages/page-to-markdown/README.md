@@ -2,7 +2,7 @@
 
 Turn a URL, local HTML file, or piped HTML into compact Markdown. It strips page chrome (nav, footer, scripts, ads), selects the main content, and reports a confidence verdict so you know what it picked and why.
 
-It won't render JavaScript — for JS-rendered pages, pipe rendered HTML in from `web-audit render` instead (see [Combining with web-audit](#combining-with-web-audit)).
+It won't render JavaScript; for JS-rendered pages, pipe rendered HTML in from `web-audit render` instead (see [Combining with web-audit](#combining-with-web-audit)).
 
 ## Requirements
 
@@ -77,9 +77,9 @@ Source: https://example.com/two
 ...converted content...
 ```
 
-The heading uses the page's `<title>` (or first heading) when available, falling back to the source itself — useful for newsletters/HTML emails that don't have a clean title.
+The heading uses the page's `<title>` (or first heading) when available, falling back to the source itself: useful for newsletters/HTML emails that don't have a clean title.
 
-If one source fails to fetch, the rest still convert; the failed one shows a `## Failed: <source>` block in its place instead of stopping the whole batch. The command exits `0` if at least one source succeeded, `1` only if every source failed. A single source's output is unchanged by this feature — no heading or wrapper is added.
+If one source fails to fetch, the rest still convert; the failed one shows a `## Failed: <source>` block in its place instead of stopping the whole batch. The command exits `0` if at least one source succeeded, `1` only if every source failed. A single source's output is unchanged by this feature: no heading or wrapper is added.
 
 ## Flags
 

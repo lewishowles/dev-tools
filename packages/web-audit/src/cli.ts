@@ -1,3 +1,4 @@
+import { runAxe } from "./checks/axe.ts";
 import { loadPage } from "./load.ts";
 
 const usage = [
@@ -46,6 +47,18 @@ export async function runCli(argumentsList: string[]): Promise<number> {
 			const elementCount = await loadedPage.page.locator("*").count();
 
 			console.log(`Loaded DOM: ${source} (${elementCount} elements)`);
+
+			const violations = await runAxe(loadedPage.page);
+
+			if (violations.length === 0) {
+				console.log("No accessibility violations found.");
+			} else {
+				for (const violation of violations) {
+					console.log(
+						`${violation.id} (${violation.impact}): ${violation.target}`,
+					);
+				}
+			}
 		} finally {
 			await loadedPage.browser.close();
 		}

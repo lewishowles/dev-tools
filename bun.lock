@@ -15,12 +15,17 @@
         "web-audit": "src/cli.ts",
       },
       "dependencies": {
+        "@axe-core/playwright": "^4.12.1",
         "playwright": "^1.61.1",
       },
     },
   },
   "packages": {
+    "@axe-core/playwright": ["@axe-core/playwright@4.12.1", "", { "dependencies": { "axe-core": "~4.12.1" }, "peerDependencies": { "playwright-core": ">= 1.0.0" } }, "sha512-rMd7xriptqKpP+w5265i4Hdkv2X5kbu6uiBi/B2I7uf3hieRBM3qDCfaKPtxfiYb2mKXfF+yLODJwIx+Jv1GDw=="],
+
     "@lewishowles/cli-style": ["@lewishowles/cli-style@0.8.0", "", { "bin": { "cli-style": "bin/cli-style.js" } }, "sha512-Irfid0ZfmSW4QyHrmtAD5oGId9Q+M5284slyvBJ8ZS3ZV2NM5RkKdzCr/FtuTT/+cnRPARft0Qv9h5JwMrR+HA=="],
+
+    "axe-core": ["axe-core@4.12.1", "", {}, "sha512-s7iGf5GaVMxEG0ENN9x+xTr7GFZCb1ZP/1uATUpCEK2X78nDB3RwbtFCo9pGAf9ru+VwoQ464DkaLEeRM08wJA=="],
 
     "fsevents": ["fsevents@2.3.2", "", { "os": "darwin" }, "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA=="],
 
