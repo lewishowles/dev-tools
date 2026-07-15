@@ -5,10 +5,12 @@ region, converts it to Markdown, and writes it to stdout or a file.
 """
 
 import argparse
+import json
 import sys
 
 from page_to_markdown.convert import convert_to_markdown
 from page_to_markdown.fetch import FetchError, fetch_url, read_file
+from page_to_markdown.report import build_metadata, build_report
 from page_to_markdown.select import select_content
 
 
@@ -32,6 +34,16 @@ def build_parser():
         default=None,
         help="Write output to this path instead of stdout.",
     )
+    parser.add_argument(
+        "--confidence",
+        action="store_true",
+        help="Also print the extraction confidence report to stdout.",
+    )
+    parser.add_argument(
+        "--metadata",
+        action="store_true",
+        help="Write title, URL, and timestamp metadata beside --output.",
+    )
     return parser
 
 
@@ -45,24 +57,37 @@ def main(argv=None):
     if not args.stdin and not args.source:
         parser.error("provide a URL/file argument or use --stdin")
 
+    if args.metadata and not args.output:
+        parser.error("--metadata requires --output PATH")
+
     try:
         if args.stdin:
-            content = sys.stdin.read()
+            raw_content = sys.stdin.read()
         elif args.source.startswith(("http://", "https://")):
-            content = fetch_url(args.source)
+            raw_content = fetch_url(args.source)
         else:
-            content = read_file(args.source)
+            raw_content = read_file(args.source)
     except FetchError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
 
-    content = select_content(content)
+    selected_content = select_content(raw_content)
     base_url = (
         args.source
         if args.source and args.source.startswith(("http://", "https://"))
         else None
     )
-    content = convert_to_markdown(content, base_url=base_url)
+    content = convert_to_markdown(selected_content, base_url=base_url)
+    report = build_report(
+        raw_content,
+        selected_content,
+        content,
+        args.source if args.source else "stdin",
+    )
+    print(report, file=sys.stderr)
+
+    if args.confidence and not args.output:
+        sys.stdout.write(f"{report}\n\n")
 
     if args.output:
         try:
@@ -71,6 +96,21 @@ def main(argv=None):
         except OSError as e:
             print(f"error: could not write to {args.output}: {e}", file=sys.stderr)
             return 1
+
+        if args.metadata:
+            metadata_path = f"{args.output}.json"
+            try:
+                with open(metadata_path, "w", encoding="utf-8") as f:
+                    json.dump(
+                        build_metadata(raw_content, selected_content, args.source),
+                        f,
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+                    f.write("\n")
+            except OSError as e:
+                print(f"error: could not write to {metadata_path}: {e}", file=sys.stderr)
+                return 1
     else:
         sys.stdout.write(content)
 
