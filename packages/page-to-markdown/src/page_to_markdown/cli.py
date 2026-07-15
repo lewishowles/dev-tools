@@ -12,7 +12,7 @@ import sys
 from page_to_markdown.clipboard import ClipboardError, copy_to_clipboard
 from page_to_markdown.convert import convert_to_markdown
 from page_to_markdown.fetch import FetchError, fetch_url, read_file
-from page_to_markdown.report import build_metadata, build_report
+from page_to_markdown.report import ConfidenceReport, build_metadata, build_report
 from page_to_markdown.select import select_content
 from page_to_markdown.style import hint, row, span, status
 
@@ -22,7 +22,7 @@ class SourceResult:
     """Store one source's report, content, or fetch failure."""
 
     source: str
-    report: str
+    report: ConfidenceReport | None
     raw_content: str | None = None
     selected_content: str | None = None
     content: str | None = None
@@ -67,6 +67,57 @@ def build_parser():
     return parser
 
 
+_VERDICT_TONES = {
+    "high-confidence": "success",
+    "medium-confidence": "warning",
+    "low-confidence": "failed",
+}
+
+
+def _aligned_rows(entries):
+    """Render a group of (label, value[, result]) rows aligned into columns.
+
+    row() renders one line per call with no shared state between calls, so the
+    caller computes a shared label_width up front, matching cli-style's own
+    convention for grouped rows (see its gallery's "Rows" section, where the
+    flagged "Bundle" row still lines up with its neutral siblings).
+    """
+    label_width = max(len(entry[0]) for entry in entries)
+    return [
+        row(entry[0], entry[1], result=entry[2] if len(entry) > 2 else "", label_width=label_width)
+        for entry in entries
+    ]
+
+
+def _render_report(result):
+    """Render one source's report fields directly through cli-style, no string parsing."""
+    if result.error is not None:
+        return _aligned_rows(
+            [
+                ("Source", result.source),
+                ("Error", str(result.error), "failed"),
+            ]
+        )
+
+    report = result.report
+    lines = _aligned_rows(
+        [
+            ("Source", report.source),
+            ("Selected content root", report.selected_content_root),
+            (
+                "Removed elements",
+                f"{report.removed_elements_summary} (total={report.removed_elements_total})",
+            ),
+            ("Links", str(report.links)),
+            ("Code blocks", str(report.code_blocks)),
+            ("Verdict", report.verdict, _VERDICT_TONES.get(report.verdict, "info")),
+        ]
+    )
+    lines.extend(hint(reason) for reason in report.reasons)
+
+    return lines
+
+
 def _copy_preview(content):
     """Build a formatted terminal preview: length row, muted preview, truncation hint.
 
@@ -81,11 +132,7 @@ def _copy_preview(content):
         preview_text += "..."
 
     preview_lines = [
-        row(
-            "Length",
-            f"{character_count} characters, {line_count} lines",
-            result="info",
-        ),
+        row("Length", f"{character_count} characters, {line_count} lines"),
         "",
         span(preview_text, tone="muted"),
     ]
@@ -147,11 +194,7 @@ def main(argv=None):
                 raw_content = read_file(source)
         except FetchError as error:
             results.append(
-                SourceResult(
-                    source=source,
-                    report=f"source: {source}\nerror: {error}",
-                    error=error,
-                )
+                SourceResult(source=source, report=None, error=error)
             )
             continue
 
@@ -170,7 +213,7 @@ def main(argv=None):
         )
 
     for result in results:
-        print(result.report, file=sys.stderr)
+        print("\n".join(_render_report(result)), file=sys.stderr)
         print(file=sys.stderr)
 
     successful_results = [result for result in results if result.content is not None]
@@ -189,10 +232,9 @@ def main(argv=None):
         ]
         content = "\n\n---\n\n".join(blocks) + "\n"
 
-    report = "\n\n".join(result.report for result in results)
-
     if args.confidence and not args.output:
-        sys.stdout.write(f"{report}\n\n")
+        formatted = "\n\n".join("\n".join(_render_report(result)) for result in results)
+        sys.stdout.write(f"{formatted}\n\n")
 
     if args.output:
         try:

@@ -60,9 +60,9 @@ def test_blog_fixture_removes_page_chrome_and_reports_selection() -> None:
     assert "Welcome to my blog" not in markdown
     assert "Subscribe to our newsletter" not in markdown
     assert "Copyright 2024 My Blog" not in markdown
-    assert "selected-content-root: main" in report
-    assert "removed-elements:" in report
-    assert "verdict: high-confidence" in report
+    assert report.selected_content_root == "main"
+    assert report.removed_elements_total >= 1
+    assert report.verdict == "high-confidence"
 
 
 def test_docs_fixture_matches_checked_in_markdown() -> None:
@@ -106,8 +106,8 @@ def test_low_confidence_fixtures_include_actionable_report_reasons(
     raw_html, selected_html, markdown = extract_fixture(fixture_name)
     report = build_report(raw_html, selected_html, markdown, fixture_name)
 
-    assert "verdict: low-confidence" in report
-    assert f"reason: {reason}" in report
+    assert report.verdict == "low-confidence"
+    assert any(reason in candidate for candidate in report.reasons)
 
 
 def test_valueless_img_attributes_do_not_crash_conversion() -> None:
@@ -163,8 +163,8 @@ def test_main_keeps_failed_source_in_batch_output(tmp_path, capsys) -> None:
     assert f"## Failed: {missing_source}" in captured.out
     assert "**Failed to fetch:**" in captured.out
     assert "## Simple fixture" in captured.out
-    assert f"source: {missing_source}" in captured.err
-    assert "error:" in captured.err
+    assert f"Source  {missing_source}" in captured.err
+    assert "Error " in captured.err
 
 
 def test_main_returns_failure_without_output_when_all_sources_fail(tmp_path, capsys) -> None:
@@ -178,7 +178,7 @@ def test_main_returns_failure_without_output_when_all_sources_fail(tmp_path, cap
 
     assert exit_code == 1
     assert captured.out == ""
-    assert all(f"source: {source}" in captured.err for source in missing_sources)
+    assert all(f"Source  {source}" in captured.err for source in missing_sources)
 
 
 def test_main_uses_source_heading_when_batch_document_has_no_title_or_heading(

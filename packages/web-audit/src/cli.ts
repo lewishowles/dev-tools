@@ -1,3 +1,6 @@
+import { createCliStyle, row, status } from "@lewishowles/cli-style";
+
+import { runAriaLabelChecks } from "./checks/aria-labels.ts";
 import { runAxe } from "./checks/axe.ts";
 import { loadPage } from "./load.ts";
 
@@ -12,6 +15,16 @@ const usage = [
 ].join("\n");
 
 /**
+ * Map a violation's impact/severity to a cli-style result tone.
+ *
+ * @param  {string}  impact
+ *     Violation impact, e.g. "critical", "serious", "moderate", "minor".
+ */
+function toneForImpact(impact: string): string {
+	return impact === "critical" || impact === "serious" ? "failed" : "warning";
+}
+
+/**
  * Run the web-audit command line interface.
  *
  * @param  {string[]}  argumentsList
@@ -20,6 +33,12 @@ const usage = [
  *     Process exit code.
  */
 export async function runCli(argumentsList: string[]): Promise<number> {
+	const ui = createCliStyle({
+		argv: argumentsList,
+		env: process.env,
+		stdout: process.stdout,
+	});
+
 	if (argumentsList.length === 0 || argumentsList.includes("--help") || argumentsList.includes("-h")) {
 		console.log(usage);
 
@@ -29,13 +48,15 @@ export async function runCli(argumentsList: string[]): Promise<number> {
 	const [command, source, ...extraArguments] = argumentsList;
 
 	if (command !== "scan-site") {
-		console.error(`Unknown command: ${command}\n\n${usage}`);
+		console.error(status("failed", "", { ...ui.options, label: `Unknown command: ${command}` }));
+		console.error(`\n${usage}`);
 
 		return 1;
 	}
 
 	if (!source || extraArguments.length > 0) {
-		console.error(`Expected one URL or HTML file after scan-site.\n\n${usage}`);
+		console.error(status("failed", "", { ...ui.options, label: "Expected one URL or HTML file after scan-site." }));
+		console.error(`\n${usage}`);
 
 		return 1;
 	}
@@ -46,7 +67,9 @@ export async function runCli(argumentsList: string[]): Promise<number> {
 		try {
 			const elementCount = await loadedPage.page.locator("*").count();
 
-			console.log(`Loaded DOM: ${source} (${elementCount} elements)`);
+			console.log(row("Loaded DOM", `${source} (${elementCount} elements)`, ui.options));
+
+			const axeViolations = await runAxe(loadedPage.page);
 
 			const customViolations = await runAriaLabelChecks(
 				loadedPage.page,
@@ -59,13 +82,17 @@ export async function runCli(argumentsList: string[]): Promise<number> {
 					...violation,
 					id: `custom-${violation.id}`,
 				})),
+			];
 
 			if (violations.length === 0) {
-				console.log("No accessibility violations found.");
+				console.log(status("success", "", { ...ui.options, label: "No accessibility violations found." }));
 			} else {
 				for (const violation of violations) {
 					console.log(
-						`${violation.id} (${violation.impact}): ${violation.target}`,
+						row(violation.id, `(${violation.impact}) ${violation.target}`, {
+							...ui.options,
+							result: toneForImpact(violation.impact),
+						}),
 					);
 				}
 			}
@@ -77,7 +104,7 @@ export async function runCli(argumentsList: string[]): Promise<number> {
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 
-		console.error(`web-audit: ${message}`);
+		console.error(status("failed", "", { ...ui.options, label: `web-audit: ${message}` }));
 
 		return 1;
 	}

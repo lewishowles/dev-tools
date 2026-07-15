@@ -4,7 +4,7 @@ from pathlib import Path
 
 from page_to_markdown._cli_style import (
     hint as render_hint,
-    row as render_row,
+    render as render_generic,
     span as render_span,
     status as render_status,
 )
@@ -30,9 +30,19 @@ def hint(message: str) -> str:
     return render_hint(message, binary=_binary_path())
 
 
-def row(label: str, value: str, result: str = "") -> str:
-    """Render a labelled row using the repository-local cli-style binary."""
-    return render_row(label, value, result, binary=_binary_path())
+def row(label: str, value: str, result: str = "", label_width: int | None = None) -> str:
+    """Render a labelled row using the repository-local cli-style binary.
+
+    label_width aligns a group of rows into columns, matching cli-style's own
+    convention (see its gallery's "Rows" section) since row() renders one line
+    at a time with no shared state between calls.
+    """
+    data = {"label": label, "value": value, "result": result}
+
+    if label_width is not None:
+        data["labelWidth"] = label_width
+
+    return render_generic("row", data, binary=_binary_path())
 
 
 def span(value: str, tone: str = "info") -> str:

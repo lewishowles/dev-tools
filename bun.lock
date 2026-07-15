@@ -5,7 +5,7 @@
     "": {
       "name": "dev-tools",
       "devDependencies": {
-        "@lewishowles/cli-style": "^0.8.0",
+        "@lewishowles/cli-style": "^0.8.1",
       },
     },
     "packages/web-audit": {
@@ -16,6 +16,7 @@
       },
       "dependencies": {
         "@axe-core/playwright": "^4.12.1",
+        "@lewishowles/cli-style": "0.8.1",
         "playwright": "^1.61.1",
       },
     },
@@ -23,7 +24,7 @@
   "packages": {
     "@axe-core/playwright": ["@axe-core/playwright@4.12.1", "", { "dependencies": { "axe-core": "~4.12.1" }, "peerDependencies": { "playwright-core": ">= 1.0.0" } }, "sha512-rMd7xriptqKpP+w5265i4Hdkv2X5kbu6uiBi/B2I7uf3hieRBM3qDCfaKPtxfiYb2mKXfF+yLODJwIx+Jv1GDw=="],
 
-    "@lewishowles/cli-style": ["@lewishowles/cli-style@0.8.0", "", { "bin": { "cli-style": "bin/cli-style.js" } }, "sha512-Irfid0ZfmSW4QyHrmtAD5oGId9Q+M5284slyvBJ8ZS3ZV2NM5RkKdzCr/FtuTT/+cnRPARft0Qv9h5JwMrR+HA=="],
+    "@lewishowles/cli-style": ["@lewishowles/cli-style@0.8.1", "", { "bin": { "cli-style": "bin/cli-style.js" } }, "sha512-HIEqyHWHJNz4ep9UqWl6ZWSxPai4T70zvrNmhONZWaWGlMA+AxVQA8wtRIuMu7nSuTxid7fI1MBR9QfRS/keeg=="],
 
     "axe-core": ["axe-core@4.12.1", "", {}, "sha512-s7iGf5GaVMxEG0ENN9x+xTr7GFZCb1ZP/1uATUpCEK2X78nDB3RwbtFCo9pGAf9ru+VwoQ464DkaLEeRM08wJA=="],
 

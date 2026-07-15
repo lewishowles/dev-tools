@@ -1,6 +1,7 @@
 """Confidence and metadata reporting for page-to-markdown extraction."""
 
 from collections import Counter
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import re
 
@@ -38,12 +39,38 @@ class _CountingDomBuilder(_DomBuilder):
         super().handle_startendtag(tag, attrs)
 
 
+@dataclass
+class ConfidenceReport:
+    """Structured confidence report fields, for direct rendering or display."""
+
+    source: str
+    selected_content_root: str
+    removed_elements_summary: str
+    removed_elements_total: int
+    links: int
+    code_blocks: int
+    verdict: str
+    reasons: list[str] = field(default_factory=list)
+
+    def __str__(self) -> str:
+        lines = [
+            f"source: {self.source}",
+            f"selected-content-root: {self.selected_content_root}",
+            f"removed-elements: {self.removed_elements_summary} (total={self.removed_elements_total})",
+            f"links: {self.links}",
+            f"code-blocks: {self.code_blocks}",
+            f"verdict: {self.verdict}",
+        ]
+        lines.extend(f"reason: {reason}" for reason in self.reasons)
+        return "\n".join(lines)
+
+
 def build_report(
     raw_html: str,
     selected_html: str,
     markdown: str,
     source: str | None,
-) -> str:
+) -> ConfidenceReport:
     """Build an advisory confidence report from raw and selected HTML."""
     raw_builder = _parse(raw_html)
     selected_builder = _parse(selected_html)
@@ -94,16 +121,16 @@ def build_report(
     if not removed_summary:
         removed_summary = "none"
 
-    lines = [
-        f"source: {source or 'stdin'}",
-        f"selected-content-root: {selected_root}",
-        f"removed-elements: {removed_summary} (total={removed_total})",
-        f"links: {len(links)}",
-        f"code-blocks: {selected_builder.tag_counts.get('pre', 0)}",
-        f"verdict: {verdict}",
-    ]
-    lines.extend(f"reason: {reason}" for reason in reasons)
-    return "\n".join(lines)
+    return ConfidenceReport(
+        source=source or "stdin",
+        selected_content_root=selected_root,
+        removed_elements_summary=removed_summary,
+        removed_elements_total=removed_total,
+        links=len(links),
+        code_blocks=selected_builder.tag_counts.get("pre", 0),
+        verdict=verdict,
+        reasons=reasons,
+    )
 
 
 def build_metadata(
