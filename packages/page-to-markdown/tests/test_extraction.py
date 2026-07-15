@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from page_to_markdown.cli import main
 from page_to_markdown.convert import convert_to_markdown
 from page_to_markdown.fetch import read_file
 from page_to_markdown.report import build_metadata, build_report
@@ -122,3 +123,71 @@ def test_local_fixture_metadata_contains_title_without_inventing_a_url() -> None
     assert metadata["title"] == "Simple fixture"
     assert metadata["url"] is None
     assert metadata["timestamp"]
+
+
+def test_main_combines_two_fixture_sources_with_document_blocks(capsys) -> None:
+    exit_code = main(
+        [
+            str(FIXTURES / "simple.html"),
+            str(FIXTURES / "table-heavy.html"),
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "## Simple fixture" in captured.out
+    assert "## Table-heavy reference" in captured.out
+    assert "Source: " + str(FIXTURES / "simple.html") in captured.out
+    assert "\n\n---\n\n" in captured.out
+    assert captured.out.index("## Simple fixture") < captured.out.index(
+        "## Table-heavy reference"
+    )
+
+
+def test_main_single_source_preserves_exact_markdown_output(capsys) -> None:
+    exit_code = main([str(FIXTURES / "docs-page-with-code.html")])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert captured.out == read_file(FIXTURES / "docs-page-with-code.expected.md")
+
+
+def test_main_keeps_failed_source_in_batch_output(tmp_path, capsys) -> None:
+    missing_source = tmp_path / "missing.html"
+    good_source = FIXTURES / "simple.html"
+
+    exit_code = main([str(missing_source), str(good_source)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert f"## Failed: {missing_source}" in captured.out
+    assert "**Failed to fetch:**" in captured.out
+    assert "## Simple fixture" in captured.out
+    assert f"source: {missing_source}" in captured.err
+    assert "error:" in captured.err
+
+
+def test_main_returns_failure_without_output_when_all_sources_fail(tmp_path, capsys) -> None:
+    missing_sources = [
+        str(tmp_path / "missing-one.html"),
+        str(tmp_path / "missing-two.html"),
+    ]
+
+    exit_code = main(missing_sources)
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert all(f"source: {source}" in captured.err for source in missing_sources)
+
+
+def test_main_uses_source_heading_when_batch_document_has_no_title_or_heading(
+    capsys,
+) -> None:
+    email_source = FIXTURES / "minimal-email.html"
+
+    exit_code = main([str(email_source), str(FIXTURES / "simple.html")])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert f"## {email_source}" in captured.out

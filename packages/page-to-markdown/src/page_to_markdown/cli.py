@@ -5,6 +5,7 @@ region, converts it to Markdown, and writes it to stdout or a file.
 """
 
 import argparse
+from dataclasses import dataclass
 import json
 import sys
 
@@ -16,6 +17,18 @@ from page_to_markdown.select import select_content
 from page_to_markdown.style import hint, row, span, status
 
 
+@dataclass
+class SourceResult:
+    """Store one source's report, content, or fetch failure."""
+
+    source: str
+    report: str
+    raw_content: str | None = None
+    selected_content: str | None = None
+    content: str | None = None
+    error: FetchError | None = None
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="page-to-markdown",
@@ -23,8 +36,8 @@ def build_parser():
     )
     parser.add_argument(
         "source",
-        nargs="?",
-        help="URL or path to an HTML file. Mutually exclusive with --stdin.",
+        nargs="*",
+        help="URL or paths to HTML files. Mutually exclusive with --stdin.",
     )
     parser.add_argument(
         "--stdin",
@@ -84,6 +97,27 @@ def _copy_preview(content):
     return "\n".join(preview_lines) + "\n"
 
 
+def _format_success_block(result):
+    """Wrap one successful document for combined output."""
+    title = build_metadata(
+        result.raw_content or "",
+        result.selected_content or "",
+        result.source,
+    )["title"] or result.source
+    content = (result.content or "").rstrip("\n")
+
+    return f"## {title}\n\nSource: {result.source}\n\n{content}"
+
+
+def _format_failed_block(result):
+    """Show one failed source in its original batch position."""
+    return (
+        f"## Failed: {result.source}\n\n"
+        f"Source: {result.source}\n\n"
+        f"**Failed to fetch:** {result.error}"
+    )
+
+
 def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -97,32 +131,65 @@ def main(argv=None):
     if args.metadata and not args.output:
         parser.error("--metadata requires --output PATH")
 
-    try:
-        if args.stdin:
-            raw_content = sys.stdin.read()
-        elif args.source.startswith(("http://", "https://")):
-            raw_content = fetch_url(args.source)
-        else:
-            raw_content = read_file(args.source)
-    except FetchError as e:
-        print(f"error: {e}", file=sys.stderr)
+    if args.metadata and len(args.source) > 1:
+        parser.error("--metadata only supports one source")
+
+    sources = args.source if args.source else ["stdin"]
+    results = []
+
+    for source in sources:
+        try:
+            if args.stdin:
+                raw_content = sys.stdin.read()
+            elif source.startswith(("http://", "https://")):
+                raw_content = fetch_url(source)
+            else:
+                raw_content = read_file(source)
+        except FetchError as error:
+            results.append(
+                SourceResult(
+                    source=source,
+                    report=f"source: {source}\nerror: {error}",
+                    error=error,
+                )
+            )
+            continue
+
+        selected_content = select_content(raw_content)
+        base_url = source if source.startswith(("http://", "https://")) else None
+        content = convert_to_markdown(selected_content, base_url=base_url)
+        report = build_report(raw_content, selected_content, content, source)
+        results.append(
+            SourceResult(
+                source=source,
+                report=report,
+                raw_content=raw_content,
+                selected_content=selected_content,
+                content=content,
+            )
+        )
+
+    for result in results:
+        print(result.report, file=sys.stderr)
+        print(file=sys.stderr)
+
+    successful_results = [result for result in results if result.content is not None]
+
+    if not successful_results:
         return 1
 
-    selected_content = select_content(raw_content)
-    base_url = (
-        args.source
-        if args.source and args.source.startswith(("http://", "https://"))
-        else None
-    )
-    content = convert_to_markdown(selected_content, base_url=base_url)
-    report = build_report(
-        raw_content,
-        selected_content,
-        content,
-        args.source if args.source else "stdin",
-    )
-    print(report, file=sys.stderr)
-    print(file=sys.stderr)
+    if len(sources) == 1:
+        content = successful_results[0].content or ""
+    else:
+        blocks = [
+            _format_success_block(result)
+            if result.content is not None
+            else _format_failed_block(result)
+            for result in results
+        ]
+        content = "\n\n---\n\n".join(blocks) + "\n"
+
+    report = "\n\n".join(result.report for result in results)
 
     if args.confidence and not args.output:
         sys.stdout.write(f"{report}\n\n")
@@ -140,7 +207,11 @@ def main(argv=None):
             try:
                 with open(metadata_path, "w", encoding="utf-8") as f:
                     json.dump(
-                        build_metadata(raw_content, selected_content, args.source),
+                        build_metadata(
+                            successful_results[0].raw_content or "",
+                            successful_results[0].selected_content or "",
+                            successful_results[0].source,
+                        ),
                         f,
                         ensure_ascii=False,
                         indent=2,
