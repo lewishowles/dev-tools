@@ -1,0 +1,15 @@
+{
+	"name": "web-audit",
+	"version": "0.1.0",
+	"description": "Inspect rendered pages for accessibility and quality issues.",
+	"type": "module",
+	"bin": {
+		"web-audit": "src/cli.ts"
+	},
+	"scripts": {
+		"web-audit": "bun src/cli.ts"
+	},
+	"dependencies": {
+		"playwright": "^1.61.1"
+	}
+}
