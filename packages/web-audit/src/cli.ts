@@ -3,15 +3,19 @@ import { createCliStyle, row, status } from "@lewishowles/cli-style";
 import { runAriaLabelChecks } from "./checks/aria-labels.ts";
 import { runAxe } from "./checks/axe.ts";
 import { loadPage } from "./load.ts";
+import { renderPage } from "./render.ts";
 
 const usage = [
-	"Usage: web-audit scan-site <url-or-html-file>",
+	"Usage: web-audit <command> <url-or-html-file>",
 	"",
-	"Load a page and confirm its DOM can be read.",
+	"Commands:",
+	"  scan-site <url-or-html-file>  Check a page for accessibility violations.",
+	"  render <url> [--selector <css-selector>]  Print rendered HTML.",
 	"",
 	"Examples:",
 	"  web-audit scan-site https://example.com",
 	"  web-audit scan-site ./fixtures/sample.html",
+	"  web-audit render https://example.com",
 ].join("\n");
 
 /**
@@ -22,6 +26,51 @@ const usage = [
  */
 function toneForImpact(impact: string): string {
 	return impact === "critical" || impact === "serious" ? "failed" : "warning";
+}
+
+/**
+ * Run the render command and keep rendered HTML clean for stdout consumers.
+ *
+ * @param  {string[]}  argumentsList
+ *     Command-line arguments after the render command.
+ * @returns  {Promise<number>}
+ *     Process exit code.
+ */
+async function runRender(argumentsList: string[]): Promise<number> {
+	const [source, ...options] = argumentsList;
+
+	let selector: string | undefined;
+
+	for (let index = 0; index < options.length; index += 1) {
+		if (options[index] !== "--selector" || !options[index + 1]) {
+			console.error(status("failed", "", { label: "Expected --selector followed by a CSS selector." }));
+
+			return 1;
+		}
+
+		selector = options[index + 1];
+		index += 1;
+	}
+
+	if (!source || source.startsWith("-")) {
+		console.error(status("failed", "", { label: "Expected one URL after render." }));
+
+		return 1;
+	}
+
+	try {
+		const renderedHtml = await renderPage(source, { selector });
+
+		process.stdout.write(renderedHtml);
+
+		return 0;
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+
+		console.error(status("failed", "", { label: `web-audit: ${message}` }));
+
+		return 1;
+	}
 }
 
 /**
@@ -46,6 +95,10 @@ export async function runCli(argumentsList: string[]): Promise<number> {
 	}
 
 	const [command, source, ...extraArguments] = argumentsList;
+
+	if (command === "render") {
+		return runRender([source, ...extraArguments].filter((argument): argument is string => argument !== undefined));
+	}
 
 	if (command !== "scan-site") {
 		console.error(status("failed", "", { ...ui.options, label: `Unknown command: ${command}` }));

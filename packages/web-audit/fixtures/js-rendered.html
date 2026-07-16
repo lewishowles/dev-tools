@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>JavaScript-rendered page</title>
+	</head>
+	<body>
+		<div id="app">
+			<p>Loading page content...</p>
+		</div>
+		<script>
+			setTimeout(() => {
+				document.querySelector("#app").innerHTML = `
+					<main>
+						<h1>Rendered fixture</h1>
+						<p>This content was added by JavaScript.</p>
+					</main>
+				`;
+			}, 25);
+		</script>
+	</body>
+</html>
