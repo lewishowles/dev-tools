@@ -1,18 +1,9 @@
 import { join, resolve } from "node:path";
-
 import { createCliStyle, row, status } from "@lewishowles/cli-style";
+import { runExportsCheck } from "./checks/exports.js";
+import { readSizeConfig, runSizeCheck } from "./checks/size.js";
 
-import {
-	runExportsCheck,
-	type ExportCheckMode,
-	type ExportModeResult,
-} from "./checks/exports.ts";
-import {
-	readSizeConfig,
-	runSizeCheck,
-	type SizeBudgetResult,
-} from "./checks/size.ts";
-
+// Usage text shared by help and argument errors.
 const usage = [
 	"Usage: pkg-checks <command> <package-path>",
 	"",
@@ -32,27 +23,26 @@ const usage = [
 /**
  * Describe a check mode for human-readable CLI output.
  *
- * @param  {ExportCheckMode}  mode
+ * @param  {string}  mode
  *     Check mode to describe.
  * @returns  {string}
  *     Human-readable mode label.
  */
-function modeLabel(mode: ExportCheckMode): string {
+function modeLabel(mode) {
 	return mode === "barrel-coverage" ? "Barrel coverage" : "Exports map";
 }
 
 /**
- * Print one mode's result and failures.
+ * Report the result of an export check mode.
  *
- * @param  {ExportModeResult}  result
- *     Mode result to report.
- * @param  {ReturnType<typeof createCliStyle>["options"]}  options
- *     CLI output options.
+ * @param  {object}  result
+ *     Export check result to report.
+ * @param  {object}  options
+ *     CLI styling options.
+ * @returns  {void}
+ *     Nothing.
  */
-function reportMode(
-	result: ExportModeResult,
-	options: ReturnType<typeof createCliStyle>["options"],
-): void {
+function reportMode(result, options) {
 	const label = modeLabel(result.mode);
 
 	if (result.failures.length > 0) {
@@ -62,7 +52,6 @@ function reportMode(
 				label: `${label} failed`,
 			}),
 		);
-
 		for (const failure of result.failures) {
 			console.error(
 				row(failure.target, failure.reason, {
@@ -84,17 +73,16 @@ function reportMode(
 }
 
 /**
- * Print one size budget's result and failures.
+ * Report the result of a size budget check.
  *
- * @param  {SizeBudgetResult}  result
+ * @param  {object}  result
  *     Size budget result to report.
- * @param  {ReturnType<typeof createCliStyle>["options"]}  options
- *     CLI output options.
+ * @param  {object}  options
+ *     CLI styling options.
+ * @returns  {void}
+ *     Nothing.
  */
-function reportSizeBudget(
-	result: SizeBudgetResult,
-	options: ReturnType<typeof createCliStyle>["options"],
-): void {
+function reportSizeBudget(result, options) {
 	if (result.failures.length > 0) {
 		console.error(
 			status("failed", "", {
@@ -102,7 +90,6 @@ function reportSizeBudget(
 				label: `${result.name} failed`,
 			}),
 		);
-
 		for (const failure of result.failures) {
 			console.error(
 				row(failure.target, failure.reason, {
@@ -124,17 +111,17 @@ function reportSizeBudget(
 }
 
 /**
- * Resolve the size budget configuration path from CLI options.
+ * Resolve the size budget configuration path.
  *
  * @param  {string}  packagePath
- *     Package path used for the default configuration location.
+ *     Package directory path.
  * @param  {string[]}  argumentsList
- *     Arguments after the package path.
+ *     Arguments following the size package path.
  * @returns  {string}
- *     Absolute configuration path.
+ *     Resolved configuration path.
  */
-function getSizeConfigPath(packagePath: string, argumentsList: string[]): string {
-	let configPath: string | undefined;
+function getSizeConfigPath(packagePath, argumentsList) {
+	let configPath;
 
 	for (let index = 0; index < argumentsList.length; index += 1) {
 		if (argumentsList[index] !== "--config") {
@@ -159,21 +146,25 @@ function getSizeConfigPath(packagePath: string, argumentsList: string[]): string
 }
 
 /**
- * Run the pkg-checks command line interface.
+ * Run the package-checks command-line interface.
  *
  * @param  {string[]}  argumentsList
- *     Command-line arguments without the executable name.
+ *     Command-line arguments excluding the executable.
  * @returns  {Promise<number>}
  *     Process exit code.
  */
-export async function runCli(argumentsList: string[]): Promise<number> {
+export async function runCli(argumentsList) {
 	const ui = createCliStyle({
 		argv: argumentsList,
 		env: process.env,
 		stdout: process.stdout,
 	});
 
-	if (argumentsList.length === 0 || argumentsList.includes("--help") || argumentsList.includes("-h")) {
+	if (
+		argumentsList.length === 0 ||
+		argumentsList.includes("--help") ||
+		argumentsList.includes("-h")
+	) {
 		console.log(usage);
 
 		return 0;
@@ -183,7 +174,8 @@ export async function runCli(argumentsList: string[]): Promise<number> {
 
 	if (command !== "exports" && command !== "size") {
 		console.error(status("failed", "", { ...ui.options, label: `Unknown command: ${command}` }));
-		console.error(`\n${usage}`);
+		console.error(`
+${usage}`);
 
 		return 1;
 	}
@@ -195,7 +187,8 @@ export async function runCli(argumentsList: string[]): Promise<number> {
 				label: `Expected one package directory after ${command}.`,
 			}),
 		);
-		console.error(`\n${usage}`);
+		console.error(`
+${usage}`);
 
 		return 1;
 	}
@@ -209,7 +202,8 @@ export async function runCli(argumentsList: string[]): Promise<number> {
 						label: "Expected one package directory after exports.",
 					}),
 				);
-				console.error(`\n${usage}`);
+				console.error(`
+${usage}`);
 
 				return 1;
 			}

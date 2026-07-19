@@ -2,65 +2,15 @@ import { existsSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
 
-export interface SizeFileBudget {
-	globs: string[];
-	maxBytes: number;
-}
-
-export interface SizeTotalBudget {
-	name: string;
-	globs: string[];
-	maxBytes: number;
-}
-
-export interface SizeBudgetConfig {
-	sizeBudgets: {
-		perFile: SizeFileBudget;
-		total: SizeTotalBudget[];
-	};
-}
-
-export type SizeBudgetKind = "per-file" | "total";
-
-export interface SizeCheckFailure {
-	target: string;
-	reason: string;
-}
-
-export interface SizeBudgetResult {
-	name: string;
-	kind: SizeBudgetKind;
-	checked: number;
-	actualBytes?: number;
-	maxBytes: number;
-	failures: SizeCheckFailure[];
-}
-
-export interface SizeCheckResult {
-	packageRoot: string;
-	results: SizeBudgetResult[];
-	failures: SizeCheckFailure[];
-}
-
-interface FileSize {
-	path: string;
-	bytes: number;
-}
-
-interface ParsedBudget {
-	globs: string[];
-	maxBytes: number;
-}
-
 /**
- * Read a JSON size budget configuration.
+ * Read a size-budget configuration file.
  *
  * @param  {string}  configPath
- *     Path to the JSON configuration file.
+ *     Configuration file path.
  * @returns  {Promise<unknown>}
- *     Parsed configuration awaiting runtime validation by the check.
+ *     Parsed configuration value.
  */
-export async function readSizeConfig(configPath: string): Promise<unknown> {
+export async function readSizeConfig(configPath) {
 	if (typeof configPath !== "string" || !configPath.trim()) {
 		throw new Error("Expected a size budget configuration path.");
 	}
@@ -68,7 +18,7 @@ export async function readSizeConfig(configPath: string): Promise<unknown> {
 	const source = await readFile(configPath, "utf8");
 
 	try {
-		return JSON.parse(source) as unknown;
+		return JSON.parse(source);
 	} catch (error) {
 		const reason = error instanceof Error ? error.message : String(error);
 
@@ -77,28 +27,28 @@ export async function readSizeConfig(configPath: string): Promise<unknown> {
 }
 
 /**
- * Check whether a value is a non-null object with string keys.
+ * Determine whether a value is a non-array object.
  *
  * @param  {unknown}  value
  *     Value to inspect.
  * @returns  {boolean}
- *     Whether the value can be read as a record.
+ *     True when the value is an object record.
  */
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value) {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**
- * Parse and normalise package-relative glob patterns.
+ * Validate and normalise package-relative glob patterns.
  *
  * @param  {unknown}  value
- *     Raw glob list from the configuration.
+ *     Glob collection to validate.
  * @param  {string}  label
  *     Configuration label used in validation errors.
  * @returns  {string[]}
- *     Normalised slash-separated glob patterns.
+ *     Normalised glob patterns.
  */
-function parseGlobs(value: unknown, label: string): string[] {
+function parseGlobs(value, label) {
 	if (
 		!Array.isArray(value) ||
 		value.length === 0 ||
@@ -120,18 +70,16 @@ function parseGlobs(value: unknown, label: string): string[] {
 }
 
 /**
- * Parse a byte budget definition.
+ * Validate a per-file or total size budget.
  *
  * @param  {unknown}  value
- *     Raw budget from the configuration.
+ *     Budget value to validate.
  * @param  {string}  label
  *     Configuration label used in validation errors.
- * @param  {boolean}  requiresName
- *     Whether the budget must include a display name.
- * @returns  {SizeFileBudget | SizeTotalBudget}
- *     Validated budget.
+ * @returns  {object}
+ *     Validated glob and byte limit.
  */
-function parseBudget(value: unknown, label: string): ParsedBudget {
+function parseBudget(value, label) {
 	if (!isRecord(value)) {
 		throw new Error(`${label} must be an object.`);
 	}
@@ -147,30 +95,30 @@ function parseBudget(value: unknown, label: string): ParsedBudget {
 }
 
 /**
- * Parse a per-file budget.
+ * Validate a per-file size budget.
  *
  * @param  {unknown}  value
- *     Raw budget from the configuration.
+ *     Budget value to validate.
  * @param  {string}  label
  *     Configuration label used in validation errors.
- * @returns  {SizeFileBudget}
+ * @returns  {object}
  *     Validated per-file budget.
  */
-function parseFileBudget(value: unknown, label: string): SizeFileBudget {
+function parseFileBudget(value, label) {
 	return parseBudget(value, label);
 }
 
 /**
- * Parse a named total budget.
+ * Validate a named total size budget.
  *
  * @param  {unknown}  value
- *     Raw budget from the configuration.
+ *     Budget value to validate.
  * @param  {string}  label
  *     Configuration label used in validation errors.
- * @returns  {SizeTotalBudget}
+ * @returns  {object}
  *     Validated total budget.
  */
-function parseTotalBudget(value: unknown, label: string): SizeTotalBudget {
+function parseTotalBudget(value, label) {
 	const budget = parseBudget(value, label);
 	const name = isRecord(value) ? value.name : undefined;
 
@@ -182,14 +130,14 @@ function parseTotalBudget(value: unknown, label: string): SizeTotalBudget {
 }
 
 /**
- * Validate the external size budget configuration shape.
+ * Validate the supported size-budget configuration shape.
  *
  * @param  {unknown}  value
- *     Raw configuration value.
- * @returns  {SizeBudgetConfig}
- *     Validated size budget configuration.
+ *     Configuration value to validate.
+ * @returns  {object}
+ *     Validated size-budget configuration.
  */
-function parseConfig(value: unknown): SizeBudgetConfig {
+function parseConfig(value) {
 	if (!isRecord(value) || !isRecord(value.sizeBudgets)) {
 		throw new Error("Configuration must contain a sizeBudgets object.");
 	}
@@ -204,22 +152,20 @@ function parseConfig(value: unknown): SizeBudgetConfig {
 	return {
 		sizeBudgets: {
 			perFile,
-			total: total.map((budget, index) =>
-				parseTotalBudget(budget, `sizeBudgets.total[${index}]`),
-			),
+			total: total.map((budget, index) => parseTotalBudget(budget, `sizeBudgets.total[${index}]`)),
 		},
 	};
 }
 
 /**
- * Convert a glob pattern into a slash-separated path matcher.
+ * Convert a supported glob pattern into a file-path matcher.
  *
  * @param  {string}  glob
- *     Package-relative glob pattern.
+ *     Glob pattern to convert.
  * @returns  {RegExp}
- *     Anchored regular expression for the glob.
+ *     Regular expression matching the glob.
  */
-function globToRegExp(glob: string): RegExp {
+function globToRegExp(glob) {
 	let pattern = "^";
 
 	for (let index = 0; index < glob.length; index += 1) {
@@ -256,25 +202,24 @@ function globToRegExp(glob: string): RegExp {
 }
 
 /**
- * Collect files below a package root as slash-separated relative paths.
+ * Collect files below a package directory as package-relative paths.
  *
  * @param  {string}  directory
- *     Directory currently being traversed.
+ *     Directory to traverse.
  * @param  {string}  packageRoot
- *     Absolute package root used to calculate relative paths.
+ *     Package root used for relative paths.
  * @returns  {Promise<string[]>}
  *     Sorted package-relative file paths.
  */
-async function collectFiles(directory: string, packageRoot: string): Promise<string[]> {
+async function collectFiles(directory, packageRoot) {
 	const entries = await readdir(directory, { withFileTypes: true });
-	const files: string[] = [];
+	const files = [];
 
 	for (const entry of entries) {
 		const absolutePath = join(directory, entry.name);
 
 		if (entry.isDirectory()) {
 			files.push(...(await collectFiles(absolutePath, packageRoot)));
-
 			continue;
 		}
 
@@ -287,32 +232,32 @@ async function collectFiles(directory: string, packageRoot: string): Promise<str
 }
 
 /**
- * Find unique files matched by one or more package-relative globs.
+ * Return files matching at least one configured glob.
  *
  * @param  {string[]}  files
- *     Package-relative files available for matching.
+ *     Package-relative file paths.
  * @param  {string[]}  globs
- *     Package-relative glob patterns.
+ *     Glob patterns to apply.
  * @returns  {string[]}
- *     Sorted matching files without duplicate paths.
+ *     Matching file paths.
  */
-function matchFiles(files: string[], globs: string[]): string[] {
+function matchFiles(files, globs) {
 	const matchers = globs.map((glob) => globToRegExp(glob));
 
 	return files.filter((file) => matchers.some((matcher) => matcher.test(file)));
 }
 
 /**
- * Read file sizes for matched package files.
+ * Read byte sizes for selected package files.
  *
  * @param  {string}  packageRoot
- *     Absolute package root.
+ *     Package root containing the files.
  * @param  {string[]}  files
- *     Package-relative files to measure.
- * @returns  {Promise<FileSize[]>}
- *     Measured files in the requested order.
+ *     Package-relative file paths.
+ * @returns  {Promise<object[]>}
+ *     Files paired with their byte sizes.
  */
-async function readFileSizes(packageRoot: string, files: string[]): Promise<FileSize[]> {
+async function readFileSizes(packageRoot, files) {
 	return Promise.all(
 		files.map(async (file) => ({
 			bytes: (await stat(join(packageRoot, file))).size,
@@ -322,34 +267,30 @@ async function readFileSizes(packageRoot: string, files: string[]): Promise<File
 }
 
 /**
- * Format bytes using the package-size check's kilobyte display.
+ * Format a byte count for CLI output.
  *
  * @param  {number}  bytes
  *     Byte count to format.
  * @returns  {string}
- *     One-decimal kilobyte display.
+ *     Human-readable size.
  */
-function formatBytes(bytes: number): string {
+function formatBytes(bytes) {
 	return `${(bytes / 1024).toFixed(1)} KB`;
 }
 
 /**
- * Create a standard over-budget failure row.
+ * Build a failure for a budget that has been exceeded.
  *
  * @param  {string}  target
- *     File or named total budget that exceeded its limit.
+ *     File or budget name that exceeded its limit.
  * @param  {number}  actualBytes
- *     Measured bytes.
+ *     Measured byte count.
  * @param  {number}  maxBytes
- *     Allowed bytes.
- * @returns  {SizeCheckFailure}
- *     Failure suitable for CLI reporting.
+ *     Allowed byte count.
+ * @returns  {object}
+ *     Formatted budget failure.
  */
-function createOverBudgetFailure(
-	target: string,
-	actualBytes: number,
-	maxBytes: number,
-): SizeCheckFailure {
+function createOverBudgetFailure(target, actualBytes, maxBytes) {
 	return {
 		reason: `is ${formatBytes(actualBytes)}, above the ${formatBytes(maxBytes)} budget`,
 		target,
@@ -357,18 +298,18 @@ function createOverBudgetFailure(
 }
 
 /**
- * Check every file matched by the per-file budget.
+ * Check each file against a per-file byte budget.
  *
- * @param  {SizeFileBudget} budget
+ * @param  {object}  budget
  *     Per-file budget to apply.
- * @param  {FileSize[]}  fileSizes
- *     All files available in the package.
- * @returns  {SizeBudgetResult}
- *     Per-file budget verdict.
+ * @param  {object[]}  fileSizes
+ *     Measured package files.
+ * @returns  {object}
+ *     Per-file budget result.
  */
-function checkPerFileBudget(budget: SizeFileBudget, fileSizes: FileSize[]): SizeBudgetResult {
+function checkPerFileBudget(budget, fileSizes) {
 	const matchedFiles = fileSizes.filter((file) => matchFiles([file.path], budget.globs).length > 0);
-	const failures: SizeCheckFailure[] = [];
+	const failures = [];
 
 	if (matchedFiles.length === 0) {
 		failures.push({
@@ -393,22 +334,23 @@ function checkPerFileBudget(budget: SizeFileBudget, fileSizes: FileSize[]): Size
 }
 
 /**
- * Check the combined size of files matched by a named total budget.
+ * Check the combined size of files against a total byte budget.
  *
- * @param  {SizeTotalBudget} budget
- *     Named total budget to apply.
- * @param  {FileSize[]}  fileSizes
- *     All files available in the package.
- * @returns  {SizeBudgetResult}
- *     Total budget verdict.
+ * @param  {object}  budget
+ *     Total budget to apply.
+ * @param  {object[]}  fileSizes
+ *     Measured package files.
+ * @returns  {object}
+ *     Total budget result.
  */
-function checkTotalBudget(budget: SizeTotalBudget, fileSizes: FileSize[]): SizeBudgetResult {
+function checkTotalBudget(budget, fileSizes) {
 	const matchedFiles = fileSizes.filter((file) => matchFiles([file.path], budget.globs).length > 0);
 	const actualBytes = matchedFiles.reduce((total, file) => total + file.bytes, 0);
 
-	const failures = actualBytes > budget.maxBytes
-		? [createOverBudgetFailure(budget.name, actualBytes, budget.maxBytes)]
-		: [];
+	const failures =
+		actualBytes > budget.maxBytes
+			? [createOverBudgetFailure(budget.name, actualBytes, budget.maxBytes)]
+			: [];
 
 	return {
 		actualBytes,
@@ -421,23 +363,19 @@ function checkTotalBudget(budget: SizeTotalBudget, fileSizes: FileSize[]): SizeB
 }
 
 /**
- * Run configured package size budgets.
+ * Run all configured package size checks.
  *
  * @param  {string}  packagePath
- *     Package directory supplied by the caller.
+ *     Package directory path supplied by the caller.
  * @param  {unknown}  rawConfig
- *     JSON configuration containing sizeBudgets.
- * @returns  {Promise<SizeCheckResult>}
- *     Combined verdict and flattened failures.
+ *     Unvalidated size-budget configuration.
+ * @returns  {Promise<object>}
+ *     Combined size-check results.
  */
-export async function runSizeCheck(
-	packagePath: string,
-	rawConfig: unknown,
-): Promise<SizeCheckResult> {
+export async function runSizeCheck(packagePath, rawConfig) {
 	if (typeof packagePath !== "string" || !packagePath.trim()) {
 		throw new Error("Expected a package directory path.");
 	}
-
 	const packageRoot = resolve(packagePath);
 
 	if (!existsSync(packageRoot)) {

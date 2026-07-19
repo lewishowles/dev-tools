@@ -3,45 +3,21 @@ import { readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const INTERNAL_HELPERS = new Set([
-	"lib/object/path-traversal.js",
-	"lib/string/tokenise-words.js",
-]);
+// Helpers intentionally excluded from category barrel coverage.
+const INTERNAL_HELPERS = new Set(["lib/object/path-traversal.js", "lib/string/tokenise-words.js"]);
 
+// Entrypoints that only require an existing target file.
 const FILE_CHECK_ONLY = new Set(["./resolver"]);
-
-export type ExportCheckMode = "barrel-coverage" | "exports-map";
-
-export interface ExportCheckFailure {
-	target: string;
-	reason: string;
-}
-
-export interface ExportModeResult {
-	mode: ExportCheckMode;
-	checked: number;
-	failures: ExportCheckFailure[];
-}
-
-export interface ExportCheckResult {
-	packageRoot: string;
-	results: ExportModeResult[];
-	failures: ExportCheckFailure[];
-}
-
-interface PackageManifest {
-	exports?: unknown;
-}
 
 /**
  * Find category directories with a matching barrel file.
  *
  * @param  {string}  packageRoot
- *     Absolute package directory to inspect.
+ *     Package directory to inspect.
  * @returns  {Promise<string[]>}
- *     Category names with barrel files.
+ *     Sorted category names with barrel files.
  */
-async function findBarrelCategories(packageRoot: string): Promise<string[]> {
+async function findBarrelCategories(packageRoot) {
 	const libRoot = join(packageRoot, "lib");
 
 	if (!existsSync(libRoot)) {
@@ -52,8 +28,7 @@ async function findBarrelCategories(packageRoot: string): Promise<string[]> {
 
 	return entries
 		.filter(
-			(entry) =>
-				entry.isDirectory() && existsSync(join(libRoot, entry.name, `${entry.name}.js`)),
+			(entry) => entry.isDirectory() && existsSync(join(libRoot, entry.name, `${entry.name}.js`)),
 		)
 		.map((entry) => entry.name)
 		.sort();
@@ -63,15 +38,15 @@ async function findBarrelCategories(packageRoot: string): Promise<string[]> {
  * Read the helper paths re-exported by a category barrel.
  *
  * @param  {string}  barrelPath
- *     Absolute path to a category barrel.
+ *     Category barrel file to inspect.
  * @param  {string}  category
- *     Helper category represented by the barrel.
+ *     Category name used to build helper paths.
  * @returns  {Promise<Set<string>>}
- *     Repo-relative helper paths re-exported by the barrel.
+ *     Exported helper paths.
  */
-async function readBarrelExports(barrelPath: string, category: string): Promise<Set<string>> {
+async function readBarrelExports(barrelPath, category) {
 	const barrelSource = await readFile(barrelPath, "utf8");
-	const exportedHelpers = new Set<string>();
+	const exportedHelpers = new Set();
 	const reExportPattern = /from "\.\/([^"]+\.js)"/g;
 
 	for (const match of barrelSource.matchAll(reExportPattern)) {
@@ -82,20 +57,17 @@ async function readBarrelExports(barrelPath: string, category: string): Promise<
 }
 
 /**
- * Check public helper files against their category barrels.
+ * Check that public helper files are covered by their category barrels.
  *
  * @param  {string}  packageRoot
- *     Absolute package directory to inspect.
+ *     Package directory to inspect.
  * @param  {string[]}  categories
- *     Categories with matching barrel files.
- * @returns  {Promise<ExportModeResult>}
- *     Barrel coverage verdict and missing exports.
+ *     Categories with barrel files.
+ * @returns  {Promise<object>}
+ *     Coverage result and any missing exports.
  */
-async function runBarrelCoverage(
-	packageRoot: string,
-	categories: string[],
-	): Promise<ExportModeResult> {
-	const failures: ExportCheckFailure[] = [];
+async function runBarrelCoverage(packageRoot, categories) {
+	const failures = [];
 
 	let checked = 0;
 
@@ -138,38 +110,38 @@ async function runBarrelCoverage(
 }
 
 /**
- * Read a package manifest when it exists.
+ * Read and validate a package manifest when one exists.
  *
  * @param  {string}  packageRoot
- *     Absolute package directory to inspect.
- * @returns  {Promise<PackageManifest | null>}
- *     Parsed package manifest, or null when absent.
+ *     Package directory containing package.json.
+ * @returns  {Promise<object|null>}
+ *     Parsed manifest, or null when no manifest exists.
  */
-async function readPackageManifest(packageRoot: string): Promise<PackageManifest | null> {
+async function readPackageManifest(packageRoot) {
 	const packageJsonPath = join(packageRoot, "package.json");
 
 	if (!existsSync(packageJsonPath)) {
 		return null;
 	}
 
-	const parsed: unknown = JSON.parse(await readFile(packageJsonPath, "utf8"));
+	const parsed = JSON.parse(await readFile(packageJsonPath, "utf8"));
 
 	if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
 		throw new Error("package.json must contain a JSON object.");
 	}
 
-	return parsed as PackageManifest;
+	return parsed;
 }
 
 /**
- * Select the first supported file path from an exports entry.
+ * Select the import or require target from an export condition value.
  *
  * @param  {unknown}  conditions
- *     String export path or one-level import/require condition object.
- * @returns  {string | null}
- *     Resolved package-relative file path, or null when unsupported.
+ *     Export condition value from package.json.
+ * @returns  {string|null}
+ *     Resolved target path, or null when no supported target exists.
  */
-function getExportPath(conditions: unknown): string | null {
+function getExportPath(conditions) {
 	if (typeof conditions === "string") {
 		return conditions;
 	}
@@ -178,7 +150,7 @@ function getExportPath(conditions: unknown): string | null {
 		return null;
 	}
 
-	const conditionMap = conditions as Record<string, unknown>;
+	const conditionMap = conditions;
 	const importPath = conditionMap.import;
 
 	if (typeof importPath === "string") {
@@ -189,26 +161,23 @@ function getExportPath(conditions: unknown): string | null {
 }
 
 /**
- * Check package.json exports entries for files and named JavaScript exports.
+ * Check that package export targets exist and expose named exports.
  *
  * @param  {string}  packageRoot
- *     Absolute package directory to inspect.
- * @param  {PackageManifest}  manifest
- *     Parsed package manifest containing an exports map.
- * @returns  {Promise<ExportModeResult>}
- *     Exports-map verdict and failures.
+ *     Package directory containing package.json.
+ * @param  {object}  manifest
+ *     Parsed package manifest.
+ * @returns  {Promise<object>}
+ *     Export map result and any invalid targets.
  */
-async function runExportsMap(
-	packageRoot: string,
-	manifest: PackageManifest,
-): Promise<ExportModeResult> {
+async function runExportsMap(packageRoot, manifest) {
 	const exportMap = manifest.exports;
 
 	if (typeof exportMap !== "object" || exportMap === null || Array.isArray(exportMap)) {
 		throw new Error("package.json exports must contain an object map.");
 	}
 
-	const failures: ExportCheckFailure[] = [];
+	const failures = [];
 
 	let checked = 0;
 
@@ -225,7 +194,6 @@ async function runExportsMap(
 
 		if (!existsSync(absolutePath)) {
 			failures.push({ target: entrypoint, reason: `dist file not found: ${filePath}` });
-
 			continue;
 		}
 
@@ -251,25 +219,24 @@ async function runExportsMap(
 }
 
 /**
- * Run every export validity mode supported by a package.
+ * Run all supported export checks for a package.
  *
  * @param  {string}  packagePath
- *     Package directory supplied by the caller.
- * @returns  {Promise<ExportCheckResult>}
- *     Combined verdict for barrel coverage and exports-map checks.
+ *     Package directory path supplied by the caller.
+ * @returns  {Promise<object>}
+ *     Combined export-check results.
  */
-export async function runExportsCheck(packagePath: string): Promise<ExportCheckResult> {
+export async function runExportsCheck(packagePath) {
 	if (typeof packagePath !== "string" || !packagePath.trim()) {
 		throw new Error("Expected a package directory path.");
 	}
-
 	const packageRoot = resolve(packagePath);
 
 	if (!existsSync(packageRoot)) {
 		throw new Error(`Package directory not found: ${packagePath}`);
 	}
 
-	const results: ExportModeResult[] = [];
+	const results = [];
 	const categories = await findBarrelCategories(packageRoot);
 
 	if (categories.length > 0) {

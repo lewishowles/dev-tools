@@ -1,13 +1,13 @@
 {
 	"name": "pkg-checks",
 	"version": "0.1.0",
-	"description": "Validate package exports and barrel coverage.",
+	"description": "Validate package exports and size budgets.",
 	"type": "module",
 	"bin": {
-		"pkg-checks": "src/cli.ts"
+		"pkg-checks": "src/cli.js"
 	},
 	"scripts": {
-		"pkg-checks": "bun src/cli.ts"
+		"pkg-checks": "bun src/cli.js"
 	},
 	"dependencies": {
 		"@lewishowles/cli-style": "0.9.0"
