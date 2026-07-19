@@ -9,3 +9,6 @@ members = ["packages/page-to-markdown"]
 
 [dependency-groups]
 dev = ["pytest"]
+
+[tool.ruff.format]
+indent-style = "tab"
