@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { join, resolve } from "node:path";
 import { createCliStyle, hint, row, status } from "@lewishowles/cli-style";
 import { readExportsConfig, runExportsCheck } from "./checks/exports.js";
