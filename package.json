@@ -1,5 +1,6 @@
 {
 	"name": "dev-tools",
+	"description": "A workspace of small, independently versioned CLI tools for accessibility auditing, quality auditing, and content extraction",
 	"private": true,
 	"workspaces": [
 		"packages/*"
