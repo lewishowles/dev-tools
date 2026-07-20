@@ -5,7 +5,7 @@ description = "Workspace root for independent Python CLI tools."
 requires-python = ">=3.11"
 
 [tool.uv.workspace]
-members = ["packages/page-to-markdown"]
+members = ["packages/page-to-markdown", "packages/project-checks"]
 
 [dependency-groups]
 dev = ["pytest"]

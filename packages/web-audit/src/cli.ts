@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { createCliStyle, row, status } from "@lewishowles/cli-style";
 
 import { runAriaLabelChecks } from "./checks/aria-labels.ts";
