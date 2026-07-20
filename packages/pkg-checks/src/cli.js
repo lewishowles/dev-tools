@@ -3,6 +3,7 @@ import { createCliStyle, hint, row, status } from "@lewishowles/cli-style";
 import { runExportsCheck } from "./checks/exports.js";
 import { readRuntimeDependencyConfig, runRuntimeDependencyCheck } from "./checks/runtime-deps.js";
 import { readSizeConfig, runSizeCheck } from "./checks/size.js";
+import { runTestCoverageCheck } from "./checks/test-coverage.js";
 import { runTypeDeclarationsCheck } from "./checks/type-declarations.js";
 
 // Usage text shared by help and argument errors.
@@ -14,6 +15,7 @@ const usage = [
 	"  runtime-deps <package-path>  Check configured runtime dependency policy.",
 	"  size <package-path>          Check configured package size budgets.",
 	"  type-declarations <package-path>  Check exports have matching type declarations.",
+	"  test-coverage <package-path>      Check exports have colocated test files.",
 	"",
 	"Options:",
 	"  --config <path>         Check config JSON (default: <package-path>/quality.config.json).",
@@ -24,11 +26,18 @@ const usage = [
 	"  pkg-checks runtime-deps ~/Dev/Repositories/Packages/helpers --config ./quality.config.json",
 	"  pkg-checks size ~/Dev/Repositories/Packages/helpers --config ./quality.config.json",
 	"  pkg-checks type-declarations ~/Dev/Repositories/Packages/helpers",
+	"  pkg-checks test-coverage ~/Dev/Repositories/Packages/helpers",
 ].join("\n");
 
 // Guidance shown when runtime dependencies violate the configured policy.
 const RUNTIME_DEPENDENCY_HINT =
 	"Move runtime dependencies to devDependencies, or document the exception in ALLOWED_DEPS.";
+
+// Guidance shown when exports are missing type declarations.
+const TYPE_DECLARATIONS_HINT = "Add the missing declarations to the types file before committing.";
+
+// Guidance shown when exports are missing test files.
+const TEST_COVERAGE_HINT = "Add a test file for each helper before pushing.";
 
 /**
  * Describe a check mode for human-readable CLI output.
@@ -188,6 +197,8 @@ function reportTypeDeclarations(result, options) {
 			);
 		}
 
+		console.error(hint(TYPE_DECLARATIONS_HINT, options));
+
 		return;
 	}
 
@@ -195,6 +206,46 @@ function reportTypeDeclarations(result, options) {
 		status("success", "", {
 			...options,
 			label: `Type declarations passed (${result.checked} checked).`,
+		}),
+	);
+}
+
+/**
+ * Report the test coverage check result.
+ *
+ * @param  {object}  result
+ *     Test coverage result to report.
+ * @param  {object}  options
+ *     CLI styling options.
+ * @returns  {void}
+ *     Nothing.
+ */
+function reportTestCoverage(result, options) {
+	if (result.failures.length > 0) {
+		console.error(
+			status("failed", "", {
+				...options,
+				label: "Test coverage check failed",
+			}),
+		);
+		for (const failure of result.failures) {
+			console.error(
+				row(failure.target, failure.reason, {
+					...options,
+					result: "failed",
+				}),
+			);
+		}
+
+		console.error(hint(TEST_COVERAGE_HINT, options));
+
+		return;
+	}
+
+	console.log(
+		status("success", "", {
+			...options,
+			label: `Test coverage passed (${result.checked} checked).`,
 		}),
 	);
 }
@@ -265,7 +316,8 @@ export async function runCli(argumentsList) {
 		command !== "exports" &&
 		command !== "runtime-deps" &&
 		command !== "size" &&
-		command !== "type-declarations"
+		command !== "type-declarations" &&
+		command !== "test-coverage"
 	) {
 		console.error(status("failed", "", { ...ui.options, label: `Unknown command: ${command}` }));
 		console.error(`
@@ -328,6 +380,27 @@ ${usage}`);
 			const result = await runTypeDeclarationsCheck(packagePath);
 
 			reportTypeDeclarations(result.results[0], ui.options);
+
+			return result.failures.length > 0 ? 1 : 0;
+		}
+
+		if (command === "test-coverage") {
+			if (extraArguments.length > 0) {
+				console.error(
+					status("failed", "", {
+						...ui.options,
+						label: "Expected one package directory after test-coverage.",
+					}),
+				);
+				console.error(`
+${usage}`);
+
+				return 1;
+			}
+
+			const result = await runTestCoverageCheck(packagePath);
+
+			reportTestCoverage(result.results[0], ui.options);
 
 			return result.failures.length > 0 ? 1 : 0;
 		}

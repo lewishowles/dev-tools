@@ -44,7 +44,7 @@ export async function findBarrelCategories(packageRoot) {
  * @returns  {Promise<Set<string>>}
  *     Exported helper paths.
  */
-async function readBarrelExports(barrelPath, category) {
+export async function readBarrelExports(barrelPath, category) {
 	const barrelSource = await readFile(barrelPath, "utf8");
 	const exportedHelpers = new Set();
 	const reExportPattern = /from "\.\/([^"]+\.js)"/g;
