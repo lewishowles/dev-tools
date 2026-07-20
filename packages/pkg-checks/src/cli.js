@@ -1,6 +1,6 @@
 import { join, resolve } from "node:path";
 import { createCliStyle, hint, row, status } from "@lewishowles/cli-style";
-import { runExportsCheck } from "./checks/exports.js";
+import { readExportsConfig, runExportsCheck } from "./checks/exports.js";
 import { readRuntimeDependencyConfig, runRuntimeDependencyCheck } from "./checks/runtime-deps.js";
 import { readSizeConfig, runSizeCheck } from "./checks/size.js";
 import { runTestCoverageCheck } from "./checks/test-coverage.js";
@@ -22,7 +22,7 @@ const usage = [
 	"",
 	"Examples:",
 	"  pkg-checks exports ./packages/helpers",
-	"  pkg-checks exports ~/Dev/Repositories/Packages/components",
+	"  pkg-checks exports ~/Dev/Repositories/Packages/components --config ./quality.config.json",
 	"  pkg-checks runtime-deps ~/Dev/Repositories/Packages/helpers --config ./quality.config.json",
 	"  pkg-checks size ~/Dev/Repositories/Packages/helpers --config ./quality.config.json",
 	"  pkg-checks type-declarations ~/Dev/Repositories/Packages/helpers",
@@ -121,6 +121,7 @@ function getConfigPath(packagePath, argumentsList) {
 // Supported commands, keyed by name, each running a check and reporting its result.
 const commands = {
 	exports: {
+		needsConfig: true,
 		report: (result, options) => {
 			for (const modeResult of result.results) {
 				const label = exportModeLabels[modeResult.mode];
@@ -131,7 +132,11 @@ const commands = {
 				});
 			}
 		},
-		run: (packagePath) => runExportsCheck(packagePath),
+		run: async (packagePath, configPath) => {
+			const config = await readExportsConfig(configPath);
+
+			return runExportsCheck(packagePath, config);
+		},
 	},
 	"runtime-deps": {
 		needsConfig: true,

@@ -3,11 +3,93 @@ import { readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-// Helpers intentionally excluded from category barrel coverage.
-const INTERNAL_HELPERS = new Set(["lib/object/path-traversal.js", "lib/string/tokenise-words.js"]);
+/**
+ * Read an exports policy configuration file.
+ *
+ * @param  {string}  configPath
+ *     Configuration file path.
+ * @returns  {Promise<unknown>}
+ *     Parsed configuration value.
+ */
+export async function readExportsConfig(configPath) {
+	if (typeof configPath !== "string" || !configPath.trim()) {
+		throw new Error("Expected an exports policy configuration path.");
+	}
 
-// Entrypoints that only require an existing target file.
-const FILE_CHECK_ONLY = new Set(["./resolver"]);
+	const source = await readFile(configPath, "utf8");
+
+	try {
+		return JSON.parse(source);
+	} catch (error) {
+		const reason = error instanceof Error ? error.message : String(error);
+
+		throw new Error(`Invalid JSON in exports policy configuration: ${reason}`, {
+			cause: error,
+		});
+	}
+}
+
+/**
+ * Determine whether a value is a non-array object.
+ *
+ * @param  {unknown}  value
+ *     Value to inspect.
+ * @returns  {boolean}
+ *     True when the value is an object record.
+ */
+function isRecord(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Validate and prepare a configured string set.
+ *
+ * @param  {unknown}  value
+ *     Configuration value to validate.
+ * @param  {string}  label
+ *     Configuration key used in validation errors.
+ * @returns  {Set<string>}
+ *     Configured string values.
+ */
+function parseStringSet(value, label) {
+	const entries = value === undefined ? [] : value;
+
+	if (!Array.isArray(entries) || entries.some((entry) => typeof entry !== "string" || !entry.trim())) {
+		throw new Error(`${label} must contain non-empty strings.`);
+	}
+
+	return new Set(entries);
+}
+
+/**
+ * Validate and prepare the exports policy configuration.
+ *
+ * @param  {unknown}  value
+ *     Configuration value to validate.
+ * @returns  {object}
+ *     Validated exports policy configuration.
+ */
+function parseConfig(value) {
+	if (!isRecord(value)) {
+		throw new Error("Configuration must contain a JSON object.");
+	}
+
+	const exportsPolicy = value.exportsPolicy ?? {};
+
+	if (!isRecord(exportsPolicy)) {
+		throw new Error("exportsPolicy must contain an object.");
+	}
+
+	return {
+		exportsPolicy: {
+			fileOnlyEntrypoints: parseStringSet(
+				exportsPolicy.fileOnlyEntrypoints,
+				"exportsPolicy.fileOnlyEntrypoints",
+			),
+			internalOnly: parseStringSet(exportsPolicy.internalOnly, "exportsPolicy.internalOnly"),
+		},
+	};
+}
 
 /**
  * Find category directories with a matching barrel file.
@@ -63,10 +145,12 @@ export async function readBarrelExports(barrelPath, category) {
  *     Package directory to inspect.
  * @param  {string[]}  categories
  *     Categories with barrel files.
+ * @param  {object}  config
+ *     Validated exports policy configuration.
  * @returns  {Promise<object>}
  *     Coverage result and any missing exports.
  */
-async function runBarrelCoverage(packageRoot, categories) {
+async function runBarrelCoverage(packageRoot, categories, config) {
 	const failures = [];
 
 	let checked = 0;
@@ -91,7 +175,7 @@ async function runBarrelCoverage(packageRoot, categories) {
 
 			const helperPath = `lib/${category}/${helperName}`;
 
-			if (INTERNAL_HELPERS.has(helperPath)) {
+			if (config.exportsPolicy.internalOnly.has(helperPath)) {
 				continue;
 			}
 
@@ -167,10 +251,12 @@ function getExportPath(conditions) {
  *     Package directory containing package.json.
  * @param  {object}  manifest
  *     Parsed package manifest.
+ * @param  {object}  config
+ *     Validated exports policy configuration.
  * @returns  {Promise<object>}
  *     Export map result and any invalid targets.
  */
-async function runExportsMap(packageRoot, manifest) {
+async function runExportsMap(packageRoot, manifest, config) {
 	const exportMap = manifest.exports;
 
 	if (typeof exportMap !== "object" || exportMap === null || Array.isArray(exportMap)) {
@@ -197,7 +283,7 @@ async function runExportsMap(packageRoot, manifest) {
 			continue;
 		}
 
-		if (filePath.endsWith(".css") || FILE_CHECK_ONLY.has(entrypoint)) {
+		if (filePath.endsWith(".css") || config.exportsPolicy.fileOnlyEntrypoints.has(entrypoint)) {
 			continue;
 		}
 
@@ -223,10 +309,12 @@ async function runExportsMap(packageRoot, manifest) {
  *
  * @param  {string}  packagePath
  *     Package directory path supplied by the caller.
+ * @param  {unknown}  rawConfig
+ *     Unvalidated exports policy configuration.
  * @returns  {Promise<object>}
  *     Combined export-check results.
  */
-export async function runExportsCheck(packagePath) {
+export async function runExportsCheck(packagePath, rawConfig) {
 	if (typeof packagePath !== "string" || !packagePath.trim()) {
 		throw new Error("Expected a package directory path.");
 	}
@@ -236,17 +324,18 @@ export async function runExportsCheck(packagePath) {
 		throw new Error(`Package directory not found: ${packagePath}`);
 	}
 
+	const config = parseConfig(rawConfig);
 	const results = [];
 	const categories = await findBarrelCategories(packageRoot);
 
 	if (categories.length > 0) {
-		results.push(await runBarrelCoverage(packageRoot, categories));
+		results.push(await runBarrelCoverage(packageRoot, categories, config));
 	}
 
 	const manifest = await readPackageManifest(packageRoot);
 
 	if (manifest?.exports !== undefined) {
-		results.push(await runExportsMap(packageRoot, manifest));
+		results.push(await runExportsMap(packageRoot, manifest, config));
 	}
 
 	if (results.length === 0) {
