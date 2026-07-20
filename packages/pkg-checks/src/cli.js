@@ -3,6 +3,7 @@ import { createCliStyle, hint, row, status } from "@lewishowles/cli-style";
 import { runExportsCheck } from "./checks/exports.js";
 import { readRuntimeDependencyConfig, runRuntimeDependencyCheck } from "./checks/runtime-deps.js";
 import { readSizeConfig, runSizeCheck } from "./checks/size.js";
+import { runTypeDeclarationsCheck } from "./checks/type-declarations.js";
 
 // Usage text shared by help and argument errors.
 const usage = [
@@ -12,6 +13,7 @@ const usage = [
 	"  exports <package-path>       Check category barrels and package.json exports.",
 	"  runtime-deps <package-path>  Check configured runtime dependency policy.",
 	"  size <package-path>          Check configured package size budgets.",
+	"  type-declarations <package-path>  Check exports have matching type declarations.",
 	"",
 	"Options:",
 	"  --config <path>         Check config JSON (default: <package-path>/quality.config.json).",
@@ -21,6 +23,7 @@ const usage = [
 	"  pkg-checks exports ~/Dev/Repositories/Packages/components",
 	"  pkg-checks runtime-deps ~/Dev/Repositories/Packages/helpers --config ./quality.config.json",
 	"  pkg-checks size ~/Dev/Repositories/Packages/helpers --config ./quality.config.json",
+	"  pkg-checks type-declarations ~/Dev/Repositories/Packages/helpers",
 ].join("\n");
 
 // Guidance shown when runtime dependencies violate the configured policy.
@@ -159,6 +162,44 @@ function reportRuntimeDependencies(result, options) {
 }
 
 /**
+ * Report the type declarations check result.
+ *
+ * @param  {object}  result
+ *     Type declarations result to report.
+ * @param  {object}  options
+ *     CLI styling options.
+ * @returns  {void}
+ *     Nothing.
+ */
+function reportTypeDeclarations(result, options) {
+	if (result.failures.length > 0) {
+		console.error(
+			status("failed", "", {
+				...options,
+				label: "Type declaration check failed",
+			}),
+		);
+		for (const failure of result.failures) {
+			console.error(
+				row(failure.target, failure.reason, {
+					...options,
+					result: "failed",
+				}),
+			);
+		}
+
+		return;
+	}
+
+	console.log(
+		status("success", "", {
+			...options,
+			label: `Type declarations passed (${result.checked} checked).`,
+		}),
+	);
+}
+
+/**
  * Resolve the check configuration path.
  *
  * @param  {string}  packagePath
@@ -220,7 +261,12 @@ export async function runCli(argumentsList) {
 
 	const [command, packagePath, ...extraArguments] = argumentsList;
 
-	if (command !== "exports" && command !== "runtime-deps" && command !== "size") {
+	if (
+		command !== "exports" &&
+		command !== "runtime-deps" &&
+		command !== "size" &&
+		command !== "type-declarations"
+	) {
 		console.error(status("failed", "", { ...ui.options, label: `Unknown command: ${command}` }));
 		console.error(`
 ${usage}`);
@@ -261,6 +307,27 @@ ${usage}`);
 			for (const modeResult of result.results) {
 				reportMode(modeResult, ui.options);
 			}
+
+			return result.failures.length > 0 ? 1 : 0;
+		}
+
+		if (command === "type-declarations") {
+			if (extraArguments.length > 0) {
+				console.error(
+					status("failed", "", {
+						...ui.options,
+						label: "Expected one package directory after type-declarations.",
+					}),
+				);
+				console.error(`
+${usage}`);
+
+				return 1;
+			}
+
+			const result = await runTypeDeclarationsCheck(packagePath);
+
+			reportTypeDeclarations(result.results[0], ui.options);
 
 			return result.failures.length > 0 ? 1 : 0;
 		}

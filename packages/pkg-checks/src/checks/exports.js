@@ -17,7 +17,7 @@ const FILE_CHECK_ONLY = new Set(["./resolver"]);
  * @returns  {Promise<string[]>}
  *     Sorted category names with barrel files.
  */
-async function findBarrelCategories(packageRoot) {
+export async function findBarrelCategories(packageRoot) {
 	const libRoot = join(packageRoot, "lib");
 
 	if (!existsSync(libRoot)) {
