@@ -2,14 +2,14 @@
 	"name": "pkg-checks",
 	"version": "0.1.0",
 	"description": "Validate package exports and size budgets.",
-	"type": "module",
 	"bin": {
 		"pkg-checks": "src/cli.js"
 	},
+	"type": "module",
 	"scripts": {
 		"pkg-checks": "bun src/cli.js"
 	},
 	"dependencies": {
-		"@lewishowles/cli-style": "0.9.0"
+		"@lewishowles/cli-style": "0.10.0"
 	}
 }

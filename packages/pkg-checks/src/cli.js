@@ -39,215 +39,48 @@ const TYPE_DECLARATIONS_HINT = "Add the missing declarations to the types file b
 // Guidance shown when exports are missing test files.
 const TEST_COVERAGE_HINT = "Add a test file for each helper before pushing.";
 
-/**
- * Describe a check mode for human-readable CLI output.
- *
- * @param  {string}  mode
- *     Check mode to describe.
- * @returns  {string}
- *     Human-readable mode label.
- */
-function modeLabel(mode) {
-	return mode === "barrel-coverage" ? "Barrel coverage" : "Exports map";
-}
+// Human-readable labels for exports check modes.
+const exportModeLabels = {
+	"barrel-coverage": "Barrel coverage",
+	"exports-map": "Exports map",
+};
 
 /**
- * Report the result of an export check mode.
+ * Report one check result as failure rows with an optional hint, or a success status.
  *
  * @param  {object}  result
- *     Export check result to report.
+ *     Check result to report.
  * @param  {object}  options
  *     CLI styling options.
+ * @param  {object}  labels
+ *     Report labels.
+ * @param  {string}  labels.failed
+ *     Label shown when the check fails.
+ * @param  {string}  labels.success
+ *     Label shown when the check passes.
+ * @param  {string}  [labels.hintText]
+ *     Optional guidance shown below failure rows.
  * @returns  {void}
  *     Nothing.
  */
-function reportMode(result, options) {
-	const label = modeLabel(result.mode);
-
+function reportCheckResult(result, options, { failed, success, hintText }) {
 	if (result.failures.length > 0) {
-		console.error(
-			status("failed", "", {
-				...options,
-				label: `${label} failed`,
-			}),
-		);
+		const lines = [status("failed", "", { ...options, label: failed })];
+
 		for (const failure of result.failures) {
-			console.error(
-				row(failure.target, failure.reason, {
-					...options,
-					result: "failed",
-				}),
-			);
+			lines.push(row(failure.target, failure.reason, { ...options, result: "failed" }));
 		}
+
+		if (hintText) {
+			lines.push(hint(hintText, options));
+		}
+
+		console.error(lines.join("\n"));
 
 		return;
 	}
 
-	console.log(
-		status("success", "", {
-			...options,
-			label: `${label} passed (${result.checked} checked).`,
-		}),
-	);
-}
-
-/**
- * Report the result of a size budget check.
- *
- * @param  {object}  result
- *     Size budget result to report.
- * @param  {object}  options
- *     CLI styling options.
- * @returns  {void}
- *     Nothing.
- */
-function reportSizeBudget(result, options) {
-	if (result.failures.length > 0) {
-		console.error(
-			status("failed", "", {
-				...options,
-				label: `${result.name} failed`,
-			}),
-		);
-		for (const failure of result.failures) {
-			console.error(
-				row(failure.target, failure.reason, {
-					...options,
-					result: "failed",
-				}),
-			);
-		}
-
-		return;
-	}
-
-	console.log(
-		status("success", "", {
-			...options,
-			label: `${result.name} passed (${result.checked} checked).`,
-		}),
-	);
-}
-
-/**
- * Report the runtime dependency policy result.
- *
- * @param  {object}  result
- *     Runtime dependency result to report.
- * @param  {object}  options
- *     CLI styling options.
- * @returns  {void}
- *     Nothing.
- */
-function reportRuntimeDependencies(result, options) {
-	if (result.failures.length > 0) {
-		console.error(
-			status("failed", "", {
-				...options,
-				label: "Unexpected runtime dependency found",
-			}),
-		);
-
-		for (const failure of result.failures) {
-			console.error(
-				row(failure.target, failure.reason, {
-					...options,
-					result: "failed",
-				}),
-			);
-		}
-
-		console.error(hint(RUNTIME_DEPENDENCY_HINT, options));
-
-		return;
-	}
-
-	console.log(
-		status("success", "", {
-			...options,
-			label: "Runtime dependencies are approved",
-		}),
-	);
-}
-
-/**
- * Report the type declarations check result.
- *
- * @param  {object}  result
- *     Type declarations result to report.
- * @param  {object}  options
- *     CLI styling options.
- * @returns  {void}
- *     Nothing.
- */
-function reportTypeDeclarations(result, options) {
-	if (result.failures.length > 0) {
-		console.error(
-			status("failed", "", {
-				...options,
-				label: "Type declaration check failed",
-			}),
-		);
-		for (const failure of result.failures) {
-			console.error(
-				row(failure.target, failure.reason, {
-					...options,
-					result: "failed",
-				}),
-			);
-		}
-
-		console.error(hint(TYPE_DECLARATIONS_HINT, options));
-
-		return;
-	}
-
-	console.log(
-		status("success", "", {
-			...options,
-			label: `Type declarations passed (${result.checked} checked).`,
-		}),
-	);
-}
-
-/**
- * Report the test coverage check result.
- *
- * @param  {object}  result
- *     Test coverage result to report.
- * @param  {object}  options
- *     CLI styling options.
- * @returns  {void}
- *     Nothing.
- */
-function reportTestCoverage(result, options) {
-	if (result.failures.length > 0) {
-		console.error(
-			status("failed", "", {
-				...options,
-				label: "Test coverage check failed",
-			}),
-		);
-		for (const failure of result.failures) {
-			console.error(
-				row(failure.target, failure.reason, {
-					...options,
-					result: "failed",
-				}),
-			);
-		}
-
-		console.error(hint(TEST_COVERAGE_HINT, options));
-
-		return;
-	}
-
-	console.log(
-		status("success", "", {
-			...options,
-			label: `Test coverage passed (${result.checked} checked).`,
-		}),
-	);
+	console.log(status("success", "", { ...options, label: success }));
 }
 
 /**
@@ -285,6 +118,95 @@ function getConfigPath(packagePath, argumentsList) {
 	return resolve(configPath ?? join(packagePath, "quality.config.json"));
 }
 
+// Supported commands, keyed by name, each running a check and reporting its result.
+const commands = {
+	exports: {
+		report: (result, options) => {
+			for (const modeResult of result.results) {
+				const label = exportModeLabels[modeResult.mode];
+
+				reportCheckResult(modeResult, options, {
+					failed: `${label} failed`,
+					success: `${label} passed (${modeResult.checked} checked).`,
+				});
+			}
+		},
+		run: (packagePath) => runExportsCheck(packagePath),
+	},
+	"runtime-deps": {
+		needsConfig: true,
+		report: (result, options) => {
+			reportCheckResult(result, options, {
+				failed: "Unexpected runtime dependency found",
+				hintText: RUNTIME_DEPENDENCY_HINT,
+				success: "Runtime dependencies are approved",
+			});
+		},
+		run: async (packagePath, configPath) => {
+			const config = await readRuntimeDependencyConfig(configPath);
+
+			return runRuntimeDependencyCheck(packagePath, config);
+		},
+	},
+	size: {
+		needsConfig: true,
+		report: (result, options) => {
+			for (const budgetResult of result.results) {
+				reportCheckResult(budgetResult, options, {
+					failed: `${budgetResult.name} failed`,
+					success: `${budgetResult.name} passed (${budgetResult.checked} checked).`,
+				});
+			}
+		},
+		run: async (packagePath, configPath) => {
+			const config = await readSizeConfig(configPath);
+
+			return runSizeCheck(packagePath, config);
+		},
+	},
+	"test-coverage": {
+		report: (result, options) => {
+			const [checkResult] = result.results;
+
+			reportCheckResult(checkResult, options, {
+				failed: "Test coverage check failed",
+				hintText: TEST_COVERAGE_HINT,
+				success: `Test coverage passed (${checkResult.checked} checked).`,
+			});
+		},
+		run: (packagePath) => runTestCoverageCheck(packagePath),
+	},
+	"type-declarations": {
+		report: (result, options) => {
+			const [checkResult] = result.results;
+
+			reportCheckResult(checkResult, options, {
+				failed: "Type declaration check failed",
+				hintText: TYPE_DECLARATIONS_HINT,
+				success: `Type declarations passed (${checkResult.checked} checked).`,
+			});
+		},
+		run: (packagePath) => runTypeDeclarationsCheck(packagePath),
+	},
+};
+
+/**
+ * Report a usage error for a command and print the usage text.
+ *
+ * @param  {string}  command
+ *     Command that was invoked.
+ * @param  {object}  options
+ *     CLI styling options.
+ * @returns  {void}
+ *     Nothing.
+ */
+function reportUsageError(command, options) {
+	console.error(
+		status("failed", "", { ...options, label: `Expected one package directory after ${command}.` }),
+	);
+	console.error(`\n${usage}`);
+}
+
 /**
  * Run the package-checks command-line interface.
  *
@@ -311,117 +233,35 @@ export async function runCli(argumentsList) {
 	}
 
 	const [command, packagePath, ...extraArguments] = argumentsList;
+	const commandDefinition = Object.hasOwn(commands, command) ? commands[command] : undefined;
 
-	if (
-		command !== "exports" &&
-		command !== "runtime-deps" &&
-		command !== "size" &&
-		command !== "type-declarations" &&
-		command !== "test-coverage"
-	) {
+	if (!commandDefinition) {
 		console.error(status("failed", "", { ...ui.options, label: `Unknown command: ${command}` }));
-		console.error(`
-${usage}`);
+		console.error(`\n${usage}`);
 
 		return 1;
 	}
 
 	if (!packagePath || packagePath.startsWith("-")) {
-		console.error(
-			status("failed", "", {
-				...ui.options,
-				label: `Expected one package directory after ${command}.`,
-			}),
-		);
-		console.error(`
-${usage}`);
+		reportUsageError(command, ui.options);
+
+		return 1;
+	}
+
+	if (!commandDefinition.needsConfig && extraArguments.length > 0) {
+		reportUsageError(command, ui.options);
 
 		return 1;
 	}
 
 	try {
-		if (command === "exports") {
-			if (extraArguments.length > 0) {
-				console.error(
-					status("failed", "", {
-						...ui.options,
-						label: "Expected one package directory after exports.",
-					}),
-				);
-				console.error(`
-${usage}`);
+		const configPath = commandDefinition.needsConfig
+			? getConfigPath(packagePath, extraArguments)
+			: undefined;
 
-				return 1;
-			}
+		const result = await commandDefinition.run(packagePath, configPath);
 
-			const result = await runExportsCheck(packagePath);
-
-			for (const modeResult of result.results) {
-				reportMode(modeResult, ui.options);
-			}
-
-			return result.failures.length > 0 ? 1 : 0;
-		}
-
-		if (command === "type-declarations") {
-			if (extraArguments.length > 0) {
-				console.error(
-					status("failed", "", {
-						...ui.options,
-						label: "Expected one package directory after type-declarations.",
-					}),
-				);
-				console.error(`
-${usage}`);
-
-				return 1;
-			}
-
-			const result = await runTypeDeclarationsCheck(packagePath);
-
-			reportTypeDeclarations(result.results[0], ui.options);
-
-			return result.failures.length > 0 ? 1 : 0;
-		}
-
-		if (command === "test-coverage") {
-			if (extraArguments.length > 0) {
-				console.error(
-					status("failed", "", {
-						...ui.options,
-						label: "Expected one package directory after test-coverage.",
-					}),
-				);
-				console.error(`
-${usage}`);
-
-				return 1;
-			}
-
-			const result = await runTestCoverageCheck(packagePath);
-
-			reportTestCoverage(result.results[0], ui.options);
-
-			return result.failures.length > 0 ? 1 : 0;
-		}
-
-		const configPath = getConfigPath(packagePath, extraArguments);
-
-		if (command === "runtime-deps") {
-			const config = await readRuntimeDependencyConfig(configPath);
-			const result = await runRuntimeDependencyCheck(packagePath, config);
-
-			reportRuntimeDependencies(result, ui.options);
-
-			return result.failures.length > 0 ? 1 : 0;
-		}
-
-		const config = await readSizeConfig(configPath);
-		const result = await runSizeCheck(packagePath, config);
-
-		for (const budgetResult of result.results) {
-			reportSizeBudget(budgetResult, ui.options);
-		}
+		commandDefinition.report(result, ui.options);
 
 		return result.failures.length > 0 ? 1 : 0;
 	} catch (error) {
