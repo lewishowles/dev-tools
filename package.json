@@ -1,17 +1,17 @@
 {
-  "name": "dev-tools",
-  "private": true,
-  "workspaces": [
-    "packages/*"
-  ],
-  "scripts": {
-    "lint": "vp lint -c ./.oxlintrc.json",
-    "lint:fix": "vp lint --fix -c ./.oxlintrc.json"
-  },
-  "devDependencies": {
-    "@lewishowles/cli-style": "^0.9.0",
-    "@lewishowles/lint-config": "^0.1.3",
-    "@stylistic/eslint-plugin": "^5.10.0",
-    "vite-plus": "^0.2.4"
-  }
+	"name": "dev-tools",
+	"private": true,
+	"workspaces": [
+		"packages/*"
+	],
+	"scripts": {
+		"lint": "vp lint -c ./.oxlintrc.json",
+		"lint:fix": "vp lint --fix -c ./.oxlintrc.json"
+	},
+	"devDependencies": {
+		"@lewishowles/cli-style": "^0.10.0",
+		"@lewishowles/lint-config": "^0.1.3",
+		"@stylistic/eslint-plugin": "^5.10.0",
+		"vite-plus": "^0.2.4"
+	}
 }
