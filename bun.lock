@@ -12,7 +12,7 @@
       },
     },
     "packages/pkg-checks": {
-      "name": "pkg-checks",
+      "name": "@lewishowles/pkg-checks",
       "version": "0.1.0",
       "bin": {
         "pkg-checks": "src/cli.js",
@@ -80,6 +80,8 @@
     "@lewishowles/cli-style": ["@lewishowles/cli-style@0.10.0", "", { "bin": { "cli-style": "bin/cli-style.js" } }, "sha512-9VjYMwOxg0VQLWGgeY8cjlcgiUQ/dv+HADFBdAKU82glS3KfsvZlU7wbPbV7qQbfZiBRHkGqq+a0njN1IaFg/A=="],
 
     "@lewishowles/lint-config": ["@lewishowles/lint-config@0.1.3", "", { "peerDependencies": { "@stylistic/eslint-plugin": "*", "vite-plus": "*" } }, "sha512-kA7SmWVApdVgiTbazSOqVMdGU+Od08yeNDeISiXm/x3BWtmw3ygI+uECukA/8U+4xtssmnUlSXHkjbJ6EBuRjQ=="],
+
+    "@lewishowles/pkg-checks": ["@lewishowles/pkg-checks@workspace:packages/pkg-checks"],
 
     "@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.1.6", "", { "dependencies": { "@tybys/wasm-util": "^0.10.3" }, "peerDependencies": { "@emnapi/core": "^1.7.1", "@emnapi/runtime": "^1.7.1" } }, "sha512-ZLv/JdUfkvOy9eCnnBaGfiO+XimbjebAeO+MRQqD/B+FR1tnRN0tpKSJHRbE8sFfS6aqsXZ67TQjfwfsxULVbg=="],
 
@@ -436,8 +438,6 @@
     "picocolors": ["picocolors@1.1.1", "", {}, "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="],
 
     "picomatch": ["picomatch@4.0.5", "", {}, "sha512-RvwwcruNjI1ncT5xRakeyS9Lf8lcItv34KD+aif+VH9kduAyfYBipGh12274xtenIPZ119/R9BdTBa8gAwSh0A=="],
-
-    "pkg-checks": ["pkg-checks@workspace:packages/pkg-checks"],
 
     "playwright": ["playwright@1.61.1", "", { "dependencies": { "playwright-core": "1.61.1" }, "optionalDependencies": { "fsevents": "2.3.2" }, "bin": { "playwright": "cli.js" } }, "sha512-DWnY5o3YbLWK4GovuAVwpqL+1VwGNdUGrRr++8j8PtQQzvAVZUIMjKQ90fY689sEJZJBbZVw1rXaOKSTitkzPQ=="],
 
