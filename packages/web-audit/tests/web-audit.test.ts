@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import { loadPage } from "../src/load.ts";
+import { loadPage } from "../src/load.js";
 import { resolve } from "node:path";
-import { runAriaLabelChecks } from "../src/checks/aria-labels.ts";
-import { runCli } from "../src/cli.ts";
+import { runAriaLabelChecks } from "../src/checks/aria-labels.js";
+import { runCli } from "../src/cli.js";
 
 interface CapturedCliOutput {
 	exitCode: number;

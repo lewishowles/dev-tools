@@ -1,11 +1,4 @@
 import AxeBuilder from "@axe-core/playwright";
-import type { Page } from "playwright";
-
-export interface AxeViolation {
-	id: string;
-	impact: string;
-	target: string;
-}
 
 /**
  * Run the axe-core baseline against an already-loaded page.
@@ -15,7 +8,7 @@ export interface AxeViolation {
  * @returns  {Promise<AxeViolation[]>}
  *     Violations with their rule IDs, impacts, and affected selectors.
  */
-export async function runAxe(page: Page): Promise<AxeViolation[]> {
+export async function runAxe(page) {
 	const results = await new AxeBuilder({ page }).analyze();
 
 	return results.violations.flatMap((violation) =>

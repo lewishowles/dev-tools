@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import { createCliStyle, row, status } from "@lewishowles/cli-style";
 
-import { runAriaLabelChecks } from "./checks/aria-labels.ts";
-import { runAxe } from "./checks/axe.ts";
-import { loadPage } from "./load.ts";
-import { renderPage } from "./render.ts";
+import { runAriaLabelChecks } from "./checks/aria-labels.js";
+import { runAxe } from "./checks/axe.js";
+import { loadPage } from "./load.js";
+import { renderPage } from "./render.js";
 
 const usage = [
 	"Usage: web-audit <command> <url-or-html-file>",
@@ -25,7 +25,7 @@ const usage = [
  * @param  {string}  impact
  *     Violation impact, e.g. "critical", "serious", "moderate", "minor".
  */
-function toneForImpact(impact: string): string {
+function toneForImpact(impact) {
 	return impact === "critical" || impact === "serious" ? "failed" : "warning";
 }
 
@@ -37,10 +37,10 @@ function toneForImpact(impact: string): string {
  * @returns  {Promise<number>}
  *     Process exit code.
  */
-async function runRender(argumentsList: string[]): Promise<number> {
+async function runRender(argumentsList) {
 	const [source, ...options] = argumentsList;
 
-	let selector: string | undefined;
+	let selector;
 
 	for (let index = 0; index < options.length; index += 1) {
 		if (options[index] !== "--selector" || !options[index + 1]) {
@@ -82,7 +82,7 @@ async function runRender(argumentsList: string[]): Promise<number> {
  * @returns  {Promise<number>}
  *     Process exit code.
  */
-export async function runCli(argumentsList: string[]): Promise<number> {
+export async function runCli(argumentsList) {
 	const ui = createCliStyle({
 		argv: argumentsList,
 		env: process.env,
@@ -98,7 +98,7 @@ export async function runCli(argumentsList: string[]): Promise<number> {
 	const [command, source, ...extraArguments] = argumentsList;
 
 	if (command === "render") {
-		return runRender([source, ...extraArguments].filter((argument): argument is string => argument !== undefined));
+		return runRender([source, ...extraArguments].filter((argument) => argument !== undefined));
 	}
 
 	if (command !== "scan-site") {

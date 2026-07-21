@@ -1,14 +1,23 @@
 {
-	"name": "web-audit",
+	"name": "@lewishowles/web-audit",
 	"version": "0.1.0",
 	"description": "Inspect rendered pages for accessibility and quality issues.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/lewishowles/dev-tools.git",
+		"directory": "packages/web-audit"
+	},
 	"bin": {
-		"web-audit": "src/cli.ts"
+		"web-audit": "src/cli.js"
 	},
 	"type": "module",
+	"publishConfig": {
+		"access": "public"
+	},
 	"scripts": {
 		"test": "bun test",
-		"web-audit": "bun src/cli.ts"
+		"web-audit": "bun src/cli.js"
 	},
 	"dependencies": {
 		"@axe-core/playwright": "^4.12.1",

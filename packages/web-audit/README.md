@@ -9,7 +9,13 @@ Load a page in a real browser (or run a static HTML file) and check it for acces
 
 ## Getting started
 
-Not yet published. To use it from another project, link it globally during development:
+Install it globally with npm:
+
+```bash
+npm install --global @lewishowles/web-audit
+```
+
+To contribute to web-audit itself, link the local checkout during development:
 
 ```bash
 cd packages/web-audit

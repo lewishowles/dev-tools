@@ -1,11 +1,3 @@
-import type { Page } from "playwright";
-
-export interface AriaLabelViolation {
-	id: string;
-	impact: string;
-	target: string;
-}
-
 /**
  * Run custom ARIA label validity checks against an already-loaded page.
  *
@@ -16,10 +8,7 @@ export interface AriaLabelViolation {
  * @returns  {Promise<AriaLabelViolation[]>}
  *     Custom violations with rule IDs, impacts, and affected selectors.
  */
-export async function runAriaLabelChecks(
-	page: Page,
-	axeTargets: string[] = [],
-): Promise<AriaLabelViolation[]> {
+export async function runAriaLabelChecks(page, axeTargets = []) {
 	return page.evaluate(
 		({ axeTargets: coveredTargets }) => {
 			const prohibitedNameRoles = new Set([
@@ -94,7 +83,7 @@ export async function runAriaLabelChecks(
 				"treeitem",
 			]);
 
-			const implicitRoles: Record<string, string> = {
+			const implicitRoles = {
 				caption: "caption",
 				code: "code",
 				del: "deletion",
@@ -109,9 +98,9 @@ export async function runAriaLabelChecks(
 				sup: "superscript",
 			};
 
-			const violations: AriaLabelViolation[] = [];
+			const violations = [];
 
-			const getRole = (element: Element): string | null => {
+			const getRole = (element) => {
 				const explicitRole = element.getAttribute("role")?.trim().split(/\s+/)[0];
 
 				return (
@@ -121,7 +110,7 @@ export async function runAriaLabelChecks(
 				);
 			};
 
-			const getSelector = (element: Element): string => {
+			const getSelector = (element) => {
 				const id = element.getAttribute("id");
 
 				if (id) {
@@ -146,7 +135,7 @@ export async function runAriaLabelChecks(
 				return `${tagName}:nth-of-type(${sameTagSiblings.indexOf(element) + 1})`;
 			};
 
-			const addViolation = (id: string, element: Element): void => {
+			const addViolation = (id, element) => {
 				violations.push({
 					id,
 					impact: "serious",
@@ -154,7 +143,7 @@ export async function runAriaLabelChecks(
 				});
 			};
 
-			const getLabelledbyReferences = (element: Element): Element[] => {
+			const getLabelledbyReferences = (element) => {
 				const labelledby = element.getAttribute("aria-labelledby") ?? "";
 
 				return labelledby
@@ -162,10 +151,10 @@ export async function runAriaLabelChecks(
 					.split(/\s+/)
 					.filter(Boolean)
 					.map((id) => document.getElementById(id))
-					.filter((referencedElement): referencedElement is Element => referencedElement !== null);
+					.filter((referencedElement) => referencedElement !== null);
 			};
 
-			const hasAccessibleName = (element: Element, role: string): boolean => {
+			const hasAccessibleName = (element, role) => {
 				if (element.getAttribute("aria-label")?.trim()) {
 					return true;
 				}
@@ -189,7 +178,7 @@ export async function runAriaLabelChecks(
 				return contentNameRoles.has(role) && Boolean(element.textContent?.trim());
 			};
 
-			const isCoveredByAxe = (element: Element): boolean =>
+			const isCoveredByAxe = (element) =>
 				coveredTargets.some((selector) => {
 					try {
 						return element.matches(selector);

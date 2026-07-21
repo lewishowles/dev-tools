@@ -1,9 +1,4 @@
-import type { LoadedPage } from "./load.ts";
-import { loadPage } from "./load.ts";
-
-export interface RenderOptions {
-	selector?: string;
-}
+import { loadPage } from "./load.js";
 
 /**
  * Return a page's post-load document HTML.
@@ -15,8 +10,8 @@ export interface RenderOptions {
  * @returns  {Promise<string>}
  *     The document element's serialised HTML.
  */
-export async function renderPage(source: string, options: RenderOptions = {}): Promise<string> {
-	const loadedPage: LoadedPage = await loadPage(source);
+export async function renderPage(source, options = {}) {
+	const loadedPage = await loadPage(source);
 
 	try {
 		if (options.selector) {

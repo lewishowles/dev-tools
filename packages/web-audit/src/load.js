@@ -2,13 +2,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-import { chromium, type Browser, type Page } from "playwright";
-
-export interface LoadedPage {
-	browser: Browser;
-	page: Page;
-	source: string;
-}
+import { chromium } from "playwright";
 
 /**
  * Return an HTTP or HTTPS URL when source is a web address.
@@ -16,7 +10,7 @@ export interface LoadedPage {
  * @param  {string}  source
  *     The page address or local HTML path supplied by the user.
  */
-function getWebUrl(source: string): URL | null {
+function getWebUrl(source) {
 	try {
 		const url = new URL(source);
 
@@ -38,7 +32,7 @@ function getWebUrl(source: string): URL | null {
  * @returns  {Promise<LoadedPage>}
  *     The browser, page, and original source. The caller owns browser cleanup.
  */
-export async function loadPage(source: string): Promise<LoadedPage> {
+export async function loadPage(source) {
 	const webUrl = getWebUrl(source);
 	const browser = await chromium.launch();
 
