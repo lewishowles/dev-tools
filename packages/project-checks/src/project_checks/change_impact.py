@@ -26,7 +26,17 @@ CATEGORY_LABELS = {
 	"other": "Other",
 }
 
-CATEGORY_ORDER = ["source", "tests", "skills", "scripts", "config", "templates", "docs", "generated", "other"]
+CATEGORY_ORDER = [
+	"source",
+	"tests",
+	"skills",
+	"scripts",
+	"config",
+	"templates",
+	"docs",
+	"generated",
+	"other",
+]
 
 GENERATED_PATHS = [
 	"dist/",
@@ -56,7 +66,19 @@ CONFIG_FILENAMES = {
 }
 
 DOC_EXTENSIONS = {".md", ".mdx", ".rst", ".txt"}
-SOURCE_EXTENSIONS = {".css", ".go", ".html", ".js", ".jsx", ".py", ".rb", ".swift", ".ts", ".tsx", ".vue"}
+SOURCE_EXTENSIONS = {
+	".css",
+	".go",
+	".html",
+	".js",
+	".jsx",
+	".py",
+	".rb",
+	".swift",
+	".ts",
+	".tsx",
+	".vue",
+}
 TEST_MARKERS = ["/test/", "/tests/", "/__tests__/", ".test.", ".spec.", "_test."]
 
 
@@ -104,7 +126,9 @@ def changed_paths(project_dir: Path) -> list[ChangedPath]:
 		path = line[3:]
 		if " -> " in path:
 			_, path = path.split(" -> ", 1)
-		changed.append(ChangedPath(status=status, path=path, category=classify_path(path)))
+		changed.append(
+			ChangedPath(status=status, path=path, category=classify_path(path))
+		)
 
 	return sorted(changed, key=lambda item: item.path)
 
@@ -123,7 +147,9 @@ def classify_path(path: str) -> str:
 
 	if any(is_path_match(path, pattern) for pattern in GENERATED_PATHS):
 		return "generated"
-	if path.startswith("tests/") or any(marker in f"/{path}" for marker in TEST_MARKERS):
+	if path.startswith("tests/") or any(
+		marker in f"/{path}" for marker in TEST_MARKERS
+	):
 		return "tests"
 	if path.startswith("skills/"):
 		return "skills"
@@ -131,11 +157,18 @@ def classify_path(path: str) -> str:
 		return "scripts"
 	if path.startswith("templates/"):
 		return "templates"
-	if name in CONFIG_FILENAMES or path.startswith("adapters/") or path.startswith("rules/"):
+	if (
+		name in CONFIG_FILENAMES
+		or path.startswith("adapters/")
+		or path.startswith("rules/")
+	):
 		return "config"
 	if path.startswith("docs/") or suffix in DOC_EXTENSIONS:
 		return "docs"
-	if path.startswith(("src/", "app/", "lib/", "packages/")) or suffix in SOURCE_EXTENSIONS:
+	if (
+		path.startswith(("src/", "app/", "lib/", "packages/"))
+		or suffix in SOURCE_EXTENSIONS
+	):
 		return "source"
 
 	return "other"
@@ -198,7 +231,9 @@ def diagnostics(project_dir: Path) -> dict[str, Any]:
 	if not script:
 		return {"available": False, "checks": []}
 
-	exit_code, output = command_output([str(script), "--project", str(project_dir), "--json", "--list"], project_dir)
+	exit_code, output = command_output(
+		[str(script), "--project", str(project_dir), "--json", "--list"], project_dir
+	)
 	if exit_code != 0:
 		return {"available": False, "checks": []}
 
@@ -211,7 +246,9 @@ def diagnostics(project_dir: Path) -> dict[str, Any]:
 	return result
 
 
-def risk_signals(grouped: dict[str, list[str]], guard_result: dict[str, Any]) -> list[RiskSignal]:
+def risk_signals(
+	grouped: dict[str, list[str]], guard_result: dict[str, Any]
+) -> list[RiskSignal]:
 	signals = []
 
 	for finding in guard_result.get("findings", []):
@@ -257,12 +294,16 @@ def risk_signals(grouped: dict[str, list[str]], guard_result: dict[str, Any]) ->
 	return signals
 
 
-def verification_gaps(grouped: dict[str, list[str]], guard_result: dict[str, Any]) -> list[str]:
+def verification_gaps(
+	grouped: dict[str, list[str]], guard_result: dict[str, Any]
+) -> list[str]:
 	gaps = []
 	substantive_categories = {"config", "scripts", "skills", "source", "templates"}
 
 	if substantive_categories.intersection(grouped) and "tests" not in grouped:
-		gaps.append("No test files changed alongside source, skill, script, template, or config changes.")
+		gaps.append(
+			"No test files changed alongside source, skill, script, template, or config changes."
+		)
 
 	if {"config", "scripts", "source"}.intersection(grouped) and "docs" not in grouped:
 		gaps.append("No docs changed alongside source, script, or config changes.")
@@ -275,7 +316,9 @@ def verification_gaps(grouped: dict[str, list[str]], guard_result: dict[str, Any
 	return gaps
 
 
-def suggested_checks(project_dir: Path, diagnostics_result: dict[str, Any], guard_result: dict[str, Any]) -> list[str]:
+def suggested_checks(
+	project_dir: Path, diagnostics_result: dict[str, Any], guard_result: dict[str, Any]
+) -> list[str]:
 	checks = []
 
 	if guard_result.get("available"):
@@ -307,7 +350,9 @@ def build_report(project_dir: Path) -> dict[str, Any]:
 		"ok": not any(risk.severity == "high" for risk in risks),
 		"project_dir": str(project_dir),
 		"risks": [risk.__dict__ for risk in risks],
-		"suggested_checks": suggested_checks(project_dir, diagnostics_result, guard_result),
+		"suggested_checks": suggested_checks(
+			project_dir, diagnostics_result, guard_result
+		),
 		"verification_gaps": verification_gaps(grouped, guard_result),
 	}
 
@@ -336,7 +381,9 @@ def render_markdown(report: dict[str, Any]) -> str:
 		for category in CATEGORY_ORDER:
 			paths = report["groups"].get(category)
 			if paths:
-				lines.append(f"| {CATEGORY_LABELS[category]} | {len(paths)} | {render_paths(paths)} |")
+				lines.append(
+					f"| {CATEGORY_LABELS[category]} | {len(paths)} | {render_paths(paths)} |"
+				)
 	else:
 		lines.append("No changed files detected.")
 
@@ -344,7 +391,9 @@ def render_markdown(report: dict[str, Any]) -> str:
 	if report["risks"]:
 		for risk in report["risks"]:
 			path = f" `{risk['path']}`:" if risk["path"] else ""
-			lines.append(f"- {risk['severity']}: {path} {risk['message']}".replace(":  ", ": "))
+			lines.append(
+				f"- {risk['severity']}: {path} {risk['message']}".replace(":  ", ": ")
+			)
 	else:
 		lines.append("- None detected.")
 
@@ -364,9 +413,18 @@ def render_markdown(report: dict[str, Any]) -> str:
 
 
 def main() -> None:
-	parser = argparse.ArgumentParser(description="Summarise local change impact from Git status.")
-	parser.add_argument("--project-dir", type=Path, default=DEFAULT_PROJECT_DIR, help="Project directory to inspect.")
-	parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+	parser = argparse.ArgumentParser(
+		description="Summarise local change impact from Git status."
+	)
+	parser.add_argument(
+		"--project-dir",
+		type=Path,
+		default=DEFAULT_PROJECT_DIR,
+		help="Project directory to inspect.",
+	)
+	parser.add_argument(
+		"--json", action="store_true", help="Print machine-readable JSON."
+	)
 	args = parser.parse_args()
 
 	project_dir = args.project_dir.resolve()

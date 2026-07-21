@@ -82,11 +82,30 @@ SKIPPED_SCRIPT_NAMES = {
 	"test:e2e",
 }
 
-MUTATING_COMMAND_HINTS = ("--fix", "--write", "format", "publish", "release", "deploy", "migrate")
+MUTATING_COMMAND_HINTS = (
+	"--fix",
+	"--write",
+	"format",
+	"publish",
+	"release",
+	"deploy",
+	"migrate",
+)
 ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
 
 # Directories never worth walking when locating an Xcode project.
-EXCLUDED_DIRS = {".git", ".agent", ".build", ".swiftpm", "build", "DerivedData", "Pods", "node_modules", "dist", "vendor"}
+EXCLUDED_DIRS = {
+	".git",
+	".agent",
+	".build",
+	".swiftpm",
+	"build",
+	"DerivedData",
+	"Pods",
+	"node_modules",
+	"dist",
+	"vendor",
+}
 
 # How deep to look for an Xcode container. Projects live at the root or one level down in practice.
 XCODE_SCAN_DEPTH = 3
@@ -99,7 +118,9 @@ XCODE_TOOL_PRODUCT_TYPE = "com.apple.product-type.tool"
 
 # Test destination. Pins arch=arm64 so xcodebuild doesn't warn about the ambiguous arm64/x86_64
 # match (x86_64 is dropped in the next macOS). Override here (or via env) for iOS/other platforms.
-XCODE_DESTINATION = os.environ.get("PROJECT_DIAGNOSTICS_XCODE_DESTINATION", "platform=macOS,arch=arm64")
+XCODE_DESTINATION = os.environ.get(
+	"PROJECT_DIAGNOSTICS_XCODE_DESTINATION", "platform=macOS,arch=arm64"
+)
 
 # Test target argument formats used by supported runners.
 TEST_TARGET_STYLE_PATHS = "paths"
@@ -169,7 +190,9 @@ def detect_package_runner(project_dir: Path) -> list[str] | None:
 		return ["pnpm", "run"]
 	if (project_dir / "yarn.lock").exists():
 		return ["yarn"]
-	if (project_dir / "package-lock.json").exists() or (project_dir / "package.json").exists():
+	if (project_dir / "package-lock.json").exists() or (
+		project_dir / "package.json"
+	).exists():
 		return ["npm", "run"]
 	return None
 
@@ -301,12 +324,20 @@ def detect_xcode_tool_targets(projects: list[Path]) -> list[str]:
 #     xcodebuild command prefix for the selected container.
 # @param  {list[str]}  tool_targets
 #     Xcode command-line tool target names.
-def append_xcode_tool_checks(checks: list[Check], base_command: list[str], tool_targets: list[str]) -> None:
+def append_xcode_tool_checks(
+	checks: list[Check], base_command: list[str], tool_targets: list[str]
+) -> None:
 	if len(tool_targets) == 1:
 		checks.append(
 			Check(
 				"build:cli",
-				[*base_command, "-target", tool_targets[0], "-destination", XCODE_DESTINATION],
+				[
+					*base_command,
+					"-target",
+					tool_targets[0],
+					"-destination",
+					XCODE_DESTINATION,
+				],
 				"Xcode CLI target build",
 				timeout=XCODE_TIMEOUT,
 			)
@@ -332,7 +363,11 @@ def append_xcode_tool_checks(checks: list[Check], base_command: list[str], tool_
 
 def find_xcode_scheme(container: Path) -> str:
 	scheme_dir = container / "xcshareddata" / "xcschemes"
-	schemes = sorted(path.stem for path in scheme_dir.glob("*.xcscheme")) if scheme_dir.is_dir() else []
+	schemes = (
+		sorted(path.stem for path in scheme_dir.glob("*.xcscheme"))
+		if scheme_dir.is_dir()
+		else []
+	)
 	if container.stem in schemes:
 		return container.stem
 	return schemes[0] if schemes else container.stem
@@ -351,12 +386,25 @@ def detect_xcode_checks(project_dir: Path) -> list[Check]:
 	container_path = str(container.relative_to(project_dir))
 
 	# No -quiet: it hides the per-assertion "error:" lines that explain *why* a test failed.
-	base = ["xcodebuild", container_flag, container_path, "-scheme", scheme, "-destination", XCODE_DESTINATION]
+	base = [
+		"xcodebuild",
+		container_flag,
+		container_path,
+		"-scheme",
+		scheme,
+		"-destination",
+		XCODE_DESTINATION,
+	]
 	target_base = ["xcodebuild", "build", container_flag, container_path]
 	skip_args = [f"-skip-testing:{target}" for target in ui_targets]
 	skip_reason = " (UI tests skipped)" if skip_args else ""
 	checks = [
-		Check("build", ["xcodebuild", "build", *base[1:]], "Xcode build", timeout=XCODE_TIMEOUT),
+		Check(
+			"build",
+			["xcodebuild", "build", *base[1:]],
+			"Xcode build",
+			timeout=XCODE_TIMEOUT,
+		),
 		Check(
 			"test:unit",
 			["xcodebuild", "test", *base[1:], *skip_args],
@@ -401,10 +449,16 @@ def discover_checks(project_dir: Path) -> tuple[list[Check], list[str]]:
 
 	validate_script = project_dir / "scripts" / "validate.sh"
 	if validate_script.exists():
-		checks.append(Check("validate", ["bash", "scripts/validate.sh"], "local validation script"))
+		checks.append(
+			Check(
+				"validate", ["bash", "scripts/validate.sh"], "local validation script"
+			)
+		)
 
 	package = load_package_json(project_dir)
-	scripts = package.get("scripts", {}) if isinstance(package.get("scripts"), dict) else {}
+	scripts = (
+		package.get("scripts", {}) if isinstance(package.get("scripts"), dict) else {}
+	)
 	runner = detect_package_runner(project_dir)
 
 	for name in sorted(scripts):
@@ -420,9 +474,12 @@ def discover_checks(project_dir: Path) -> tuple[list[Check], list[str]]:
 				Check(
 					name,
 					[*runner, name],
-					"targeted Playwright package script" if test_target_style == TEST_TARGET_STYLE_PLAYWRIGHT else "conservative package script",
+					"targeted Playwright package script"
+					if test_target_style == TEST_TARGET_STYLE_PLAYWRIGHT
+					else "conservative package script",
 					test_target_style=test_target_style,
-					test_targets_required=test_target_style == TEST_TARGET_STYLE_PLAYWRIGHT,
+					test_targets_required=test_target_style
+					== TEST_TARGET_STYLE_PLAYWRIGHT,
 				)
 			)
 
@@ -440,16 +497,16 @@ def dedupe_checks(checks: list[Check]) -> list[Check]:
 		"test:unit": "test:unit:run",
 	}
 
-	return [
-		check
-		for check in checks
-		if duplicates.get(check.name) not in names
-	]
+	return [check for check in checks if duplicates.get(check.name) not in names]
 
 
-def selected_checks(checks: list[Check], requested_names: list[str], run_all: bool) -> tuple[list[Check], list[str]]:
+def selected_checks(
+	checks: list[Check], requested_names: list[str], run_all: bool
+) -> tuple[list[Check], list[str]]:
 	if run_all:
-		return [check for check in dedupe_checks(checks) if not check.test_targets_required], []
+		return [
+			check for check in dedupe_checks(checks) if not check.test_targets_required
+		], []
 
 	by_name = {check.name: check for check in checks}
 	selected = []
@@ -464,7 +521,9 @@ def selected_checks(checks: list[Check], requested_names: list[str], run_all: bo
 	return selected, errors
 
 
-def resolve_test_targets(project_dir: Path, test_files: list[str], test_globs: list[str]) -> tuple[list[str], list[str]]:
+def resolve_test_targets(
+	project_dir: Path, test_files: list[str], test_globs: list[str]
+) -> tuple[list[str], list[str]]:
 	targets: set[str] = set()
 	errors: list[str] = []
 
@@ -525,13 +584,18 @@ def xcode_test_arguments(targets: list[str]) -> tuple[list[str], list[str]]:
 
 	for target in targets:
 		path = Path(target)
-		test_target = next((part for part in reversed(path.parent.parts) if part.endswith("Tests")), None)
+		test_target = next(
+			(part for part in reversed(path.parent.parts) if part.endswith("Tests")),
+			None,
+		)
 
 		if path.suffix != ".swift":
 			errors.append(f"Xcode test file must be a Swift source file: {target}")
 			continue
 		if not test_target:
-			errors.append(f"Xcode test file must be inside a directory ending in Tests: {target}")
+			errors.append(
+				f"Xcode test file must be inside a directory ending in Tests: {target}"
+			)
 			continue
 
 		arguments.append(f"-only-testing:{test_target}/{path.stem}")
@@ -539,7 +603,9 @@ def xcode_test_arguments(targets: list[str]) -> tuple[list[str], list[str]]:
 	return arguments, errors
 
 
-def apply_test_targets(checks: list[Check], targets: list[str]) -> tuple[list[Check], list[str]]:
+def apply_test_targets(
+	checks: list[Check], targets: list[str]
+) -> tuple[list[Check], list[str]]:
 	if not targets:
 		required_checks = [check for check in checks if check.test_targets_required]
 		if required_checks:
@@ -584,7 +650,17 @@ def redact(text: str) -> str:
 	lines = []
 	for line in ANSI_PATTERN.sub("", text).splitlines():
 		lower = line.lower()
-		if any(token in lower for token in ["api_key", "apikey", "authorization:", "password", "secret", "token="]):
+		if any(
+			token in lower
+			for token in [
+				"api_key",
+				"apikey",
+				"authorization:",
+				"password",
+				"secret",
+				"token=",
+			]
+		):
 			lines.append("[redacted possible secret]")
 		else:
 			lines.append(line)
@@ -607,7 +683,11 @@ def summarise_xcode(output: str, limit: int = 15) -> list[str]:
 		return ["No output."]
 
 	lines = [line for line in clean.splitlines() if line.strip()]
-	relevant = [line for line in lines if any(token in line.lower() for token in XCODE_SUMMARY_TOKENS)]
+	relevant = [
+		line
+		for line in lines
+		if any(token in line.lower() for token in XCODE_SUMMARY_TOKENS)
+	]
 	return (relevant or lines)[-limit:]
 
 
@@ -665,15 +745,31 @@ def extract_xcresult_failures(bundle: Path, max_tests: int = 12) -> list[str]:
 
 	lines: list[str] = []
 	for identifier in failed[:max_tests]:
-		details = _xcresulttool_json(["get", "test-results", "test-details", "--test-id", identifier, "--path", str(bundle)])
+		details = _xcresulttool_json(
+			[
+				"get",
+				"test-results",
+				"test-details",
+				"--test-id",
+				identifier,
+				"--path",
+				str(bundle),
+			]
+		)
 		message = None
 		for node in _iter_nodes(details):
 			name = node.get("name")
-			if isinstance(name, str) and any(marker in name.lower() for marker in XCRESULT_FAILURE_MARKERS):
+			if isinstance(name, str) and any(
+				marker in name.lower() for marker in XCRESULT_FAILURE_MARKERS
+			):
 				message = " ".join(name.split())
 				break
 
-		lines.append(f"{identifier}: {message[:240]}" if message else f"{identifier}: failed (reason not captured)")
+		lines.append(
+			f"{identifier}: {message[:240]}"
+			if message
+			else f"{identifier}: failed (reason not captured)"
+		)
 
 	remaining = len(failed) - max_tests
 	if remaining > 0:
@@ -753,7 +849,9 @@ def run_check(project_dir: Path, log_dir: Path, check: Check, timeout: int) -> R
 			shutil.rmtree(bundle, ignore_errors=True)
 
 
-def render_markdown(project_dir: Path, results: list[Result], skipped: list[str]) -> str:
+def render_markdown(
+	project_dir: Path, results: list[Result], skipped: list[str]
+) -> str:
 	lines = [
 		"# Project diagnostics",
 		"",
@@ -786,7 +884,9 @@ def render_markdown(project_dir: Path, results: list[Result], skipped: list[str]
 	return "\n".join(lines).rstrip() + "\n"
 
 
-def render_list_markdown(project_dir: Path, checks: list[Check], skipped: list[str]) -> str:
+def render_list_markdown(
+	project_dir: Path, checks: list[Check], skipped: list[str]
+) -> str:
 	lines = [
 		"# Project diagnostics",
 		"",
@@ -799,7 +899,9 @@ def render_list_markdown(project_dir: Path, checks: list[Check], skipped: list[s
 	]
 
 	for check in checks:
-		lines.append(f"| {check.name} | `{command_label(check.command)}` | {check.reason} |")
+		lines.append(
+			f"| {check.name} | `{command_label(check.command)}` | {check.reason} |"
+		)
 
 	if not checks:
 		lines.append("| None |  | No conservative diagnostics command found |")
@@ -853,21 +955,64 @@ def main() -> int:
 		epilog=EPILOG,
 		formatter_class=argparse.RawDescriptionHelpFormatter,
 	)
-	parser.add_argument("--project", type=Path, default=Path.cwd(), help="Project directory to inspect. Defaults to the current directory.")
-	parser.add_argument("--json", action="store_true", help="Print JSON instead of Markdown for list or run output.")
-	parser.add_argument("--timeout", type=int, default=120, help="Timeout per check in seconds. Default: 120.")
-	parser.add_argument("--list", action="store_true", help="List available and skipped checks without running anything. This is the default.")
-	parser.add_argument("--check", action="append", default=[], metavar="NAME", help="Run one named check. Repeat to run multiple checks.")
-	parser.add_argument("--test-file", action="append", default=[], metavar="PATH", help="Run a targetable test check against one project-relative file. Repeat for multiple files.")
-	parser.add_argument("--test-glob", action="append", default=[], metavar="PATTERN", help="Run a targetable test check against matching project-relative files. Repeat for multiple globs.")
-	parser.add_argument("--all", action="store_true", help="Run conservative checks that do not require explicit targets. Use only after approval for broad verification.")
+	parser.add_argument(
+		"--project",
+		type=Path,
+		default=Path.cwd(),
+		help="Project directory to inspect. Defaults to the current directory.",
+	)
+	parser.add_argument(
+		"--json",
+		action="store_true",
+		help="Print JSON instead of Markdown for list or run output.",
+	)
+	parser.add_argument(
+		"--timeout",
+		type=int,
+		default=120,
+		help="Timeout per check in seconds. Default: 120.",
+	)
+	parser.add_argument(
+		"--list",
+		action="store_true",
+		help="List available and skipped checks without running anything. This is the default.",
+	)
+	parser.add_argument(
+		"--check",
+		action="append",
+		default=[],
+		metavar="NAME",
+		help="Run one named check. Repeat to run multiple checks.",
+	)
+	parser.add_argument(
+		"--test-file",
+		action="append",
+		default=[],
+		metavar="PATH",
+		help="Run a targetable test check against one project-relative file. Repeat for multiple files.",
+	)
+	parser.add_argument(
+		"--test-glob",
+		action="append",
+		default=[],
+		metavar="PATTERN",
+		help="Run a targetable test check against matching project-relative files. Repeat for multiple globs.",
+	)
+	parser.add_argument(
+		"--all",
+		action="store_true",
+		help="Run conservative checks that do not require explicit targets. Use only after approval for broad verification.",
+	)
 	args = parser.parse_args()
 
 	if args.all and args.check:
 		print("Use either --all or --check, not both.", file=sys.stderr)
 		return 2
 	if (args.test_file or args.test_glob) and (args.all or args.list or not args.check):
-		print("Test targets require one --check and cannot be used with --list or --all.", file=sys.stderr)
+		print(
+			"Test targets require one --check and cannot be used with --list or --all.",
+			file=sys.stderr,
+		)
 		return 2
 
 	project_dir = args.project.resolve()
@@ -879,7 +1024,11 @@ def main() -> int:
 	list_only = args.list or (not args.check and not args.all)
 
 	if list_only:
-		output = render_list_json(project_dir, checks, skipped) if args.json else render_list_markdown(project_dir, checks, skipped)
+		output = (
+			render_list_json(project_dir, checks, skipped)
+			if args.json
+			else render_list_markdown(project_dir, checks, skipped)
+		)
 		print(output, end="")
 		return 0
 
@@ -896,8 +1045,12 @@ def main() -> int:
 		print("Run with --list to see available checks.", file=sys.stderr)
 		return 2
 
-	test_targets, target_errors = resolve_test_targets(project_dir, args.test_file, args.test_glob)
-	checks_to_run, applicability_errors = apply_test_targets(checks_to_run, test_targets)
+	test_targets, target_errors = resolve_test_targets(
+		project_dir, args.test_file, args.test_glob
+	)
+	checks_to_run, applicability_errors = apply_test_targets(
+		checks_to_run, test_targets
+	)
 	target_errors.extend(applicability_errors)
 	if target_errors:
 		for error in target_errors:
@@ -907,9 +1060,15 @@ def main() -> int:
 	log_dir = project_dir / ".agent" / "diagnostics"
 	log_dir.mkdir(parents=True, exist_ok=True)
 
-	results = [run_check(project_dir, log_dir, check, args.timeout) for check in checks_to_run]
+	results = [
+		run_check(project_dir, log_dir, check, args.timeout) for check in checks_to_run
+	]
 
-	output = render_json(project_dir, results, skipped) if args.json else render_markdown(project_dir, results, skipped)
+	output = (
+		render_json(project_dir, results, skipped)
+		if args.json
+		else render_markdown(project_dir, results, skipped)
+	)
 	print(output, end="")
 
 	if any(result.status in {"failed", "timeout"} for result in results):

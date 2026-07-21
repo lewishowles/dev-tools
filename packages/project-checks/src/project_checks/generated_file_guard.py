@@ -64,7 +64,13 @@ CONFIG_REPO_RULES = [
 		"label": "ChatGPT target",
 	},
 	{
-		"generated": ["docs/agents.md", "docs/commands.md", "docs/hooks.md", "docs/plugins.md", "docs/skills.md"],
+		"generated": [
+			"docs/agents.md",
+			"docs/commands.md",
+			"docs/hooks.md",
+			"docs/plugins.md",
+			"docs/skills.md",
+		],
 		"sources": ["scripts/build/build-docs.py"],
 		"label": "generated docs tables",
 	},
@@ -203,7 +209,10 @@ def config_repo_rules(project_dir: Path) -> list[dict[str, Any]]:
 		rules.append(
 			{
 				"generated": [f"dist/claude/hooks/{hook_script.name}"],
-				"sources": [str(hook_script.relative_to(project_dir)), str(hook_script.with_name("hook.json").relative_to(project_dir))],
+				"sources": [
+					str(hook_script.relative_to(project_dir)),
+					str(hook_script.with_name("hook.json").relative_to(project_dir)),
+				],
 				"label": f"Claude hook {hook_script.name}",
 			}
 		)
@@ -212,11 +221,18 @@ def config_repo_rules(project_dir: Path) -> list[dict[str, Any]]:
 
 
 def generic_generated_paths(project_dir: Path) -> list[str]:
-	return sorted(set(generated_paths_from_workspace(project_dir) + [path for path in COMMON_GENERATED_PATHS if (project_dir / path).exists()]))
+	return sorted(
+		set(
+			generated_paths_from_workspace(project_dir)
+			+ [path for path in COMMON_GENERATED_PATHS if (project_dir / path).exists()]
+		)
+	)
 
 
 def generic_source_changed(path: str) -> bool:
-	return not any(is_path_match(path, generated) for generated in COMMON_GENERATED_PATHS)
+	return not any(
+		is_path_match(path, generated) for generated in COMMON_GENERATED_PATHS
+	)
 
 
 def guard(project_dir: Path) -> dict[str, Any]:
@@ -303,9 +319,18 @@ def render_markdown(result: dict[str, Any]) -> str:
 
 
 def main() -> None:
-	parser = argparse.ArgumentParser(description="Detect generated-file edits and stale generated output.")
-	parser.add_argument("--project-dir", type=Path, default=DEFAULT_PROJECT_DIR, help="Project directory to inspect.")
-	parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+	parser = argparse.ArgumentParser(
+		description="Detect generated-file edits and stale generated output."
+	)
+	parser.add_argument(
+		"--project-dir",
+		type=Path,
+		default=DEFAULT_PROJECT_DIR,
+		help="Project directory to inspect.",
+	)
+	parser.add_argument(
+		"--json", action="store_true", help="Print machine-readable JSON."
+	)
 	args = parser.parse_args()
 
 	project_dir = args.project_dir.resolve()

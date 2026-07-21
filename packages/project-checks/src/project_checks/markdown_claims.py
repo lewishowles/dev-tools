@@ -45,16 +45,16 @@ REPO_PATH_PREFIXES = (
 	"tests/",
 )
 
-RE_MD_LINK = re.compile(r'\[(?:[^\]]*)\]\(([^)#\s][^)]*)\)')
-RE_INLINE_CODE = re.compile(r'(?<!`)`([^`\n]+)`(?!`)')
-RE_CODE_FENCE = re.compile(r'```.*?```', re.DOTALL)
+RE_MD_LINK = re.compile(r"\[(?:[^\]]*)\]\(([^)#\s][^)]*)\)")
+RE_INLINE_CODE = re.compile(r"(?<!`)`([^`\n]+)`(?!`)")
+RE_CODE_FENCE = re.compile(r"```.*?```", re.DOTALL)
 
 
 @dataclass
 class Issue:
-	file: str    # repo-relative path of the markdown file
-	claim: str   # the path string as written in the source
-	kind: str    # missing_path | missing_script | not_executable
+	file: str  # repo-relative path of the markdown file
+	claim: str  # the path string as written in the source
+	kind: str  # missing_path | missing_script | not_executable
 
 
 def collect_files(dirs: list[str]) -> list[Path]:
@@ -166,7 +166,12 @@ def main() -> None:
 	global REPO_ROOT
 
 	parser = argparse.ArgumentParser()
-	parser.add_argument("--project-dir", type=Path, default=DEFAULT_PROJECT_DIR, help="Project directory to inspect.")
+	parser.add_argument(
+		"--project-dir",
+		type=Path,
+		default=DEFAULT_PROJECT_DIR,
+		help="Project directory to inspect.",
+	)
 	parser.add_argument(
 		"--mode",
 		choices=["paths", "commands", "all"],

@@ -127,7 +127,11 @@ def generators_from_workspace(body: str) -> list[dict[str, str]]:
 	generators = []
 
 	for line in section_lines(body, "## Generators"):
-		if not line.startswith("| ") or line.startswith("| ---") or line.startswith("| Name"):
+		if (
+			not line.startswith("| ")
+			or line.startswith("| ---")
+			or line.startswith("| Name")
+		):
 			continue
 
 		columns = [column.strip() for column in line.strip("|").split("|")]
@@ -157,17 +161,30 @@ def detect_package_manager(project_dir: Path) -> str:
 
 
 def inferred_summary(project_dir: Path) -> dict[str, str]:
-	progress_files = [name for name in ["PROGRESS.md", ".claude/PROGRESS.md", ".agents/PROGRESS.md"] if (project_dir / name).exists()]
+	progress_files = [
+		name
+		for name in ["PROGRESS.md", ".claude/PROGRESS.md", ".agents/PROGRESS.md"]
+		if (project_dir / name).exists()
+	]
 	agent_rules = ["AGENTS.md"] if (project_dir / "AGENTS.md").exists() else []
 
 	return {
-		"agent_rules": ", ".join(f"`{name}`" for name in agent_rules) if agent_rules else "Not detected",
+		"agent_rules": ", ".join(f"`{name}`" for name in agent_rules)
+		if agent_rules
+		else "Not detected",
 		"package_manager": detect_package_manager(project_dir),
 		"primary_stack": "Not detected",
-		"progress_files": ", ".join(f"`{name}`" for name in progress_files) if progress_files else "Not detected",
+		"progress_files": ", ".join(f"`{name}`" for name in progress_files)
+		if progress_files
+		else "Not detected",
 		"runtime_requirements": "Not detected",
 		"script_runner": "Not detected",
-		"source_dirs": ", ".join(f"`{name}`" for name in ["src", "app", "lib", "packages"] if (project_dir / name).exists()) or "Not detected",
+		"source_dirs": ", ".join(
+			f"`{name}`"
+			for name in ["src", "app", "lib", "packages"]
+			if (project_dir / name).exists()
+		)
+		or "Not detected",
 	}
 
 
@@ -250,7 +267,11 @@ def parse_git_state(project_dir: Path) -> dict[str, Any]:
 
 	for line in lines[1:]:
 		status = line[:2]
-		key = "untracked" if status == "??" else STATUS_GROUPS.get(status.strip()[:1], "other")
+		key = (
+			"untracked"
+			if status == "??"
+			else STATUS_GROUPS.get(status.strip()[:1], "other")
+		)
 		changed[key] = changed.get(key, 0) + 1
 
 	return {
@@ -272,29 +293,38 @@ def build_context(project_dir: Path) -> dict[str, Any]:
 			"path": path.name if has_workspace else "",
 		},
 		"diagnostics": diagnostics_entry(project_dir),
-		"generated_paths": generated_paths_from_workspace(body) if has_workspace else inferred_generated_paths(project_dir),
-		"generators": generators_from_workspace(body) if has_workspace else inferred_generators(project_dir),
+		"generated_paths": generated_paths_from_workspace(body)
+		if has_workspace
+		else inferred_generated_paths(project_dir),
+		"generators": generators_from_workspace(body)
+		if has_workspace
+		else inferred_generators(project_dir),
 		"git": parse_git_state(project_dir),
 		"project_dir": str(project_dir),
 		"repo_dir": str(project_dir),
 		"source": path.name if has_workspace else "inferred",
-		"summary": summary_from_workspace(body) if has_workspace else inferred_summary(project_dir),
+		"summary": summary_from_workspace(body)
+		if has_workspace
+		else inferred_summary(project_dir),
 	}
 
 
 def _drift_score(repo_dir: Path) -> str:
-    drift_script = repo_dir / "scripts" / "repo-drift.py"
-    if not drift_script.exists():
-        return "n/a"
-    try:
-        result = subprocess.run(
-            ["python3", str(drift_script), "--json"],
-            capture_output=True, text=True, timeout=10, cwd=repo_dir,
-        )
-        data = json.loads(result.stdout)
-        return f"{data['score']}/{data['max']}"
-    except Exception:
-        return "n/a"
+	drift_script = repo_dir / "scripts" / "repo-drift.py"
+	if not drift_script.exists():
+		return "n/a"
+	try:
+		result = subprocess.run(
+			["python3", str(drift_script), "--json"],
+			capture_output=True,
+			text=True,
+			timeout=10,
+			cwd=repo_dir,
+		)
+		data = json.loads(result.stdout)
+		return f"{data['score']}/{data['max']}"
+	except Exception:
+		return "n/a"
 
 
 def format_count(label: str, count: int) -> str:
@@ -305,7 +335,13 @@ def render_markdown(context: dict[str, Any]) -> str:
 	summary = context["summary"]
 	git = context["git"]
 	changed = git["changed"]
-	changed_text = ", ".join(format_count(label, count) for label, count in sorted(changed.items())) if changed else "clean"
+	changed_text = (
+		", ".join(
+			format_count(label, count) for label, count in sorted(changed.items())
+		)
+		if changed
+		else "clean"
+	)
 	upstream = f" -> {git['upstream']}" if git.get("upstream") else ""
 
 	lines = [
@@ -313,7 +349,9 @@ def render_markdown(context: dict[str, Any]) -> str:
 		"",
 		f"- Source: {context['source']}",
 		f"- Project: `{context['project_dir']}`",
-		f"- Workspace: `{context['workspace']['path']}`" if context["workspace"]["exists"] else "- Workspace: Not detected",
+		f"- Workspace: `{context['workspace']['path']}`"
+		if context["workspace"]["exists"]
+		else "- Workspace: Not detected",
 		f"- Primary stack: {summary.get('primary_stack', 'Not detected')}",
 		f"- Package manager: {summary.get('package_manager', 'Not detected')}",
 		f"- Script runner: {summary.get('script_runner', 'Not detected')}",
@@ -321,7 +359,9 @@ def render_markdown(context: dict[str, Any]) -> str:
 		f"- Source dirs: {summary.get('source_dirs', 'Not detected')}",
 		f"- Agent rules: {summary.get('agent_rules', 'Not detected')}",
 		f"- Progress files: {summary.get('progress_files', 'Not detected')}",
-		f"- Diagnostics: `{context['diagnostics']}`" if context["diagnostics"] != "Not detected" else "- Diagnostics: Not detected",
+		f"- Diagnostics: `{context['diagnostics']}`"
+		if context["diagnostics"] != "Not detected"
+		else "- Diagnostics: Not detected",
 		f"- Git: {git['branch']}{upstream}; ahead {git['ahead']}, behind {git['behind']}; {changed_text}",
 		f"- Drift score: {_drift_score(Path(context['repo_dir']))}",
 		"",
@@ -346,9 +386,18 @@ def render_markdown(context: dict[str, Any]) -> str:
 
 
 def main() -> None:
-	parser = argparse.ArgumentParser(description="Print compact repo context for agent session startup.")
-	parser.add_argument("--project-dir", type=Path, default=DEFAULT_PROJECT_DIR, help="Project directory to inspect.")
-	parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+	parser = argparse.ArgumentParser(
+		description="Print compact repo context for agent session startup."
+	)
+	parser.add_argument(
+		"--project-dir",
+		type=Path,
+		default=DEFAULT_PROJECT_DIR,
+		help="Project directory to inspect.",
+	)
+	parser.add_argument(
+		"--json", action="store_true", help="Print machine-readable JSON."
+	)
 	args = parser.parse_args()
 
 	context = build_context(args.project_dir.resolve())
