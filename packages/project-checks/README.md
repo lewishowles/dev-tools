@@ -9,10 +9,16 @@ Runs conservative diagnostics against a project: safe package scripts, Git chang
 
 ## Getting started
 
-Not yet published to PyPI, so install it globally from this repo:
+Install it globally with `uv`:
 
 ```bash
-uv tool install --from ~/Dev/Repositories/Packages/dev-tools/packages/project-checks project-checks
+uv tool install project-checks
+```
+
+To install it into an existing Python environment with `pip`:
+
+```bash
+pip install project-checks
 ```
 
 This installs five commands on your PATH:

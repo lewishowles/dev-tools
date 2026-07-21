@@ -1,0 +1,38 @@
+name: Publish project-checks
+
+on:
+  push:
+    tags:
+      - "project-checks-v*"
+
+concurrency:
+  group: publish-project-checks-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Test package
+        working-directory: packages/project-checks
+        # Pytest returns 5 when no tests are collected, which is expected for this package.
+        run: uv run pytest || [[ "$?" == "5" ]]
+
+      - name: Build package
+        working-directory: packages/project-checks
+        run: uv build
+
+      - name: Publish to PyPI
+        working-directory: .
+        run: uv publish --trusted-publishing automatic
