@@ -9,7 +9,17 @@ Load a page in a real browser (or run a static HTML file) and check it for acces
 
 ## Getting started
 
-Run from the `dev-tools` workspace root:
+Not yet published. To use it from another project, link it globally during development:
+
+```bash
+cd packages/web-audit
+bun install
+bun link
+```
+
+`web-audit` is then available globally for as long as the link is active.
+
+To work on it from within the `dev-tools` workspace itself, run it from the workspace root:
 
 ```bash
 bun --filter web-audit web-audit scan-site <url-or-file>
@@ -35,9 +45,13 @@ web-audit scan-site https://example.com
 
 # A static HTML file, relative or absolute: no browser rendering needed
 web-audit scan-site ./page.html
+
+# Print the rendered HTML of a JS-heavy page, e.g. to pipe into page-to-markdown
+web-audit render https://example.com
+web-audit render https://example.com --selector "main"
 ```
 
-Output confirms the page loaded, then reports any accessibility violations found by [axe-core](https://github.com/dequelabs/axe-core):
+`scan-site` output confirms the page loaded, then reports any accessibility violations found by [axe-core](https://github.com/dequelabs/axe-core):
 
 ```
 Loaded DOM: https://example.com (42 elements)
@@ -53,3 +67,5 @@ No accessibility violations found.
 ```
 
 The command exits `0` whether or not violations are found. This is a reporting tool, not a pass/fail gate; it only exits non-zero if the page itself fails to load.
+
+`render` prints the rendered HTML of a page to stdout instead of checking it, useful for feeding a JS-rendered page into `page-to-markdown --stdin`. Add `--selector <css-selector>` to print only a matching element's HTML.

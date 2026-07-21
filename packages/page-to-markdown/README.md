@@ -12,13 +12,19 @@ It won't render JavaScript; for JS-rendered pages, pipe rendered HTML in from `w
 
 ## Getting started
 
-Run from the `dev-tools` workspace root, either directly through `uv`:
+Not yet published to PyPI. To use it from another project, install it globally with `uv`:
+
+```bash
+uv tool install --from ~/Dev/Repositories/Packages/dev-tools/packages/page-to-markdown page-to-markdown
+```
+
+To work on it from within the `dev-tools` workspace itself, run it directly through `uv`:
 
 ```bash
 uv run --package page-to-markdown page-to-markdown ...
 ```
 
-or by activating the workspace's virtual environment once per shell session, after which `page-to-markdown` works on its own:
+or activate the workspace's virtual environment once per shell session, after which `page-to-markdown` works on its own:
 
 ```bash
 source .venv/bin/activate
