@@ -24,9 +24,11 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v6
 
+      - name: Install dependencies
+        run: uv sync
+
       - name: Test package
-        working-directory: packages/page-to-markdown
-        run: uv run pytest
+        run: uv run pytest packages/page-to-markdown/tests
 
       - name: Build package
         working-directory: packages/page-to-markdown

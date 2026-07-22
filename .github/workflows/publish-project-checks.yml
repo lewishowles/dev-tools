@@ -24,10 +24,12 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v6
 
+      - name: Install dependencies
+        run: uv sync
+
       - name: Test package
-        working-directory: packages/project-checks
         # Pytest returns 5 when no tests are collected, which is expected for this package.
-        run: uv run pytest || [[ "$?" == "5" ]]
+        run: uv run pytest packages/project-checks || [[ "$?" == "5" ]]
 
       - name: Build package
         working-directory: packages/project-checks
