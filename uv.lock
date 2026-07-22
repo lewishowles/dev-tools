@@ -71,7 +71,7 @@ wheels = [
 
 [[package]]
 name = "project-checks"
-version = "0.1.0"
+version = "0.2.2"
 source = { editable = "packages/project-checks" }
 
 [[package]]

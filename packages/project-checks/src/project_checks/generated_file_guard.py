@@ -133,10 +133,14 @@ def _load_config(config_path: Path) -> dict[str, Any]:
 	try:
 		config = json.loads(config_path.read_text(encoding="utf-8"))
 	except json.JSONDecodeError as error:
-		raise ValueError(f"Invalid JSON in generated-file guard configuration: {error}") from error
+		raise ValueError(
+			f"Invalid JSON in generated-file guard configuration: {error}"
+		) from error
 
 	if not isinstance(config, dict):
-		raise ValueError("Generated-file guard configuration must contain a JSON object.")
+		raise ValueError(
+			"Generated-file guard configuration must contain a JSON object."
+		)
 
 	return config
 
