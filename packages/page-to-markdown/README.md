@@ -24,19 +24,6 @@ To install it into an existing Python environment with `pip`:
 pip install page-to-markdown
 ```
 
-To work on it from within the `dev-tools` workspace itself, run it directly through `uv`:
-
-```bash
-uv run --package page-to-markdown page-to-markdown ...
-```
-
-or activate the workspace's virtual environment once per shell session, after which `page-to-markdown` works on its own:
-
-```bash
-source .venv/bin/activate
-page-to-markdown ...
-```
-
 ## Basic usage
 
 ```bash

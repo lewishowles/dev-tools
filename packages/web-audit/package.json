@@ -11,6 +11,10 @@
 	"bin": {
 		"web-audit": "src/cli.js"
 	},
+	"files": [
+		"src",
+		"README.md"
+	],
 	"type": "module",
 	"publishConfig": {
 		"access": "public"

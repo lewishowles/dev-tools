@@ -4,7 +4,7 @@ Load a page in a real browser (or run a static HTML file) and check it for acces
 
 ## Requirements
 
-- Bun
+- Node
 - Chromium, installed once via Playwright.
 
 ## Getting started
@@ -15,32 +15,10 @@ Install it globally with npm:
 npm install --global @lewishowles/web-audit
 ```
 
-To contribute to web-audit itself, link the local checkout during development:
-
-```bash
-cd packages/web-audit
-bun install
-bun link
-```
-
-`web-audit` is then available globally for as long as the link is active.
-
-To work on it from within the `dev-tools` workspace itself, run it from the workspace root:
-
-```bash
-bun --filter web-audit web-audit scan-site <url-or-file>
-```
-
-Or from inside `packages/web-audit`:
-
-```bash
-bun web-audit scan-site <url-or-file>
-```
-
 The first run needs Chromium installed for Playwright:
 
 ```bash
-bunx playwright install chromium
+npx playwright install chromium
 ```
 
 ## Basic usage
