@@ -1,6 +1,6 @@
 [project]
 name = "project-checks"
-version = "0.2.0"
+version = "0.2.2"
 description = "Run conservative project diagnostics."
 authors = [{ name = "Lewis Howles" }]
 license = { text = "MIT" }
