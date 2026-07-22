@@ -44,6 +44,9 @@ jobs:
       - name: Install Bun dependencies
         run: bun install
 
+      - name: Add Bun binaries to PATH
+        run: echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH"
+
       - name: Set up uv
         uses: astral-sh/setup-uv@v6
 

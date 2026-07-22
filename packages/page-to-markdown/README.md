@@ -10,6 +10,8 @@ It won't render JavaScript; for JS-rendered pages, pipe rendered HTML in from `w
 - No other dependencies
 - `--copy` needs macOS (uses `pbcopy`)
 
+Styled confidence-report output requires the standalone [`cli-style` binary](https://github.com/lewishowles/cli-style/releases) to be available on `PATH`. When it is not installed, `page-to-markdown` falls back to plain text output, so no additional dependency is required.
+
 ## Getting started
 
 Install it globally with `uv`:
