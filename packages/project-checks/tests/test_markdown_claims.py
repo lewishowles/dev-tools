@@ -5,6 +5,7 @@ import pytest
 
 from project_checks.markdown_claims import (
 	DEFAULT_REPO_PATH_PREFIXES,
+	Issue,
 	MARKDOWN_SCAN_IGNORE_DIRS,
 	check_commands,
 	check_paths,
@@ -301,3 +302,33 @@ def test_missing_config_uses_default_prefixes(tmp_path: Path) -> None:
 
 def test_missing_config_uses_default_ignore_dirs(tmp_path: Path) -> None:
 	assert load_ignore_dirs(tmp_path / "missing.json") == MARKDOWN_SCAN_IGNORE_DIRS
+
+
+def test_relative_link_with_fragment_validates_the_path_before_fragment(
+	tmp_path: Path,
+) -> None:
+	manual = tmp_path / "references" / "manual-checks.md"
+	manual.parent.mkdir()
+	manual.write_text("# Component states\n", encoding="utf-8")
+	(tmp_path / "README.md").write_text(
+		"[Manual](references/manual-checks.md#component-states)\n",
+		encoding="utf-8",
+	)
+
+	assert check_paths(tmp_path) == []
+
+
+def test_command_claims_require_shell_scripts_to_be_executable(tmp_path: Path) -> None:
+	scripts_dir = tmp_path / "scripts"
+	scripts_dir.mkdir()
+	(scripts_dir / "check.py").write_text("print('checked')\n", encoding="utf-8")
+	(scripts_dir / "check.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+	(tmp_path / "README.md").write_text(
+		"Run `scripts/check.py`, `scripts/check.sh`, or `scripts/missing.sh`.\n",
+		encoding="utf-8",
+	)
+
+	assert check_commands(tmp_path) == [
+		Issue(file="README.md", claim="scripts/check.sh", kind="not_executable"),
+		Issue(file="README.md", claim="scripts/missing.sh", kind="missing_script"),
+	]

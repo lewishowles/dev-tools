@@ -88,7 +88,8 @@ def extract_link_claims(text: str, source_file: Path) -> list[tuple[str, Path]]:
 		target = m.group(1).strip()
 		if target.startswith(("http://", "https://", "#", "mailto:", "/")):
 			continue
-		resolved = (source_file.parent / target).resolve()
+		path_target = target.split("#", maxsplit=1)[0]
+		resolved = (source_file.parent / path_target).resolve()
 		claims.append((target, resolved))
 	return claims
 
@@ -209,7 +210,7 @@ def check_commands(
 		):
 			if not resolved.exists():
 				issues.append(Issue(file=rel, claim=claim, kind="missing_script"))
-			elif not resolved.stat().st_mode & 0o111:
+			elif resolved.suffix == ".sh" and not resolved.stat().st_mode & 0o111:
 				issues.append(Issue(file=rel, claim=claim, kind="not_executable"))
 
 	return issues
