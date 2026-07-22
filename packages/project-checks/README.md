@@ -47,6 +47,20 @@ project-checks-repo-context --project-dir ./my-project
 
 Add `--json` to any command for machine-readable output.
 
+`project-checks-markdown-claims` scans Markdown files across the project, skipping
+common dependency, cache, coverage, and vendor directories. It also scans `dist`
+and `build` unless a project opts into ignoring them. It recognises common
+repo-root-relative path prefixes by default. Add project-specific prefixes or
+ignore directories in an optional `<project-dir>/markdown-claims.config.json`, or
+pass another file with `--config`:
+
+```json
+{
+	"extraPathPrefixes": ["guides/"],
+	"extraIgnoreDirs": ["dist", "build"]
+}
+```
+
 ## Other packages in this workspace
 
 - [dev-tools](../../README.md)
