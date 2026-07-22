@@ -16,7 +16,8 @@
 		"access": "public"
 	},
 	"scripts": {
-		"pkg-checks": "bun src/cli.js"
+		"pkg-checks": "bun src/cli.js",
+		"test": "bun test"
 	},
 	"dependencies": {
 		"@lewishowles/cli-style": "0.10.0"

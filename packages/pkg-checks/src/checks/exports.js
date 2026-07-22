@@ -54,7 +54,10 @@ function isRecord(value) {
 function parseStringSet(value, label) {
 	const entries = value === undefined ? [] : value;
 
-	if (!Array.isArray(entries) || entries.some((entry) => typeof entry !== "string" || !entry.trim())) {
+	if (
+		!Array.isArray(entries) ||
+		entries.some((entry) => typeof entry !== "string" || !entry.trim())
+	) {
 		throw new Error(`${label} must contain non-empty strings.`);
 	}
 
@@ -241,7 +244,11 @@ function getExportPath(conditions) {
 		return importPath;
 	}
 
-	return typeof conditionMap.require === "string" ? conditionMap.require : null;
+	if (typeof conditionMap.require === "string") {
+		return conditionMap.require;
+	}
+
+	return typeof conditionMap.default === "string" ? conditionMap.default : null;
 }
 
 /**
