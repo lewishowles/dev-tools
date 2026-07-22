@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_PROJECT_DIR = Path.cwd()
+DEFAULT_CONFIG_FILENAME = "generated-file-guard.config.json"
 
 COMMON_GENERATED_PATHS = [
 	"dist",
@@ -20,60 +21,6 @@ COMMON_GENERATED_PATHS = [
 	"coverage",
 	"test-results",
 	"playwright-report",
-]
-
-CONFIG_REPO_RULES = [
-	{
-		"generated": ["dist/claude/CLAUDE.md"],
-		"sources": ["rules/", "dist/claude/source/header.md"],
-		"label": "Claude global instructions",
-	},
-	{
-		"generated": ["dist/codex/AGENTS.md"],
-		"sources": ["rules/", "dist/codex/source/"],
-		"label": "Codex global instructions",
-	},
-	{
-		"generated": ["dist/claude/settings.json"],
-		"sources": ["adapters/claude/settings.base.json", "hooks/claude/"],
-		"label": "Claude settings",
-	},
-	{
-		"generated": ["dist/claude/.mcp.json"],
-		"sources": ["adapters/claude/mcp.json"],
-		"label": "Claude MCP config",
-	},
-	{
-		"generated": ["dist/codex/hooks.json"],
-		"sources": ["adapters/codex/hooks.json"],
-		"label": "Codex hooks config",
-	},
-	{
-		"generated": ["dist/claude/source/global-skills.md"],
-		"sources": ["scripts/build/build-skill-mds.py"],
-		"label": "Claude skill index",
-	},
-	{
-		"generated": ["dist/skills/"],
-		"sources": ["skills/", "scripts/build/build-skill-mds.py"],
-		"label": "runtime skills",
-	},
-	{
-		"generated": ["dist/chatgpt/"],
-		"sources": ["dist/chatgpt/source/", "scripts/build/build-chatgpt-target.py"],
-		"label": "ChatGPT target",
-	},
-	{
-		"generated": [
-			"docs/agents.md",
-			"docs/commands.md",
-			"docs/hooks.md",
-			"docs/plugins.md",
-			"docs/skills.md",
-		],
-		"sources": ["scripts/build/build-docs.py"],
-		"label": "generated docs tables",
-	},
 ]
 
 
@@ -179,43 +126,43 @@ def source_hint(sources: list[str]) -> str:
 	return ", ".join(f"`{source}`" for source in sources)
 
 
-def config_repo_rules(project_dir: Path) -> list[dict[str, Any]]:
-	if not (project_dir / "scripts" / "sync.sh").exists():
-		return []
-	if not (project_dir / "rules").exists():
-		return []
-	if not (project_dir / "dist" / "claude").exists():
-		return []
+def _load_config(config_path: Path) -> dict[str, Any]:
+	if not config_path.exists():
+		return {}
 
-	skill_manifests = [
-		str(skill_json.relative_to(project_dir))
-		for skill_json in sorted((project_dir / "skills").glob("*/*/skill.json"))
-	]
-	hook_manifests = [
-		str(hook_json.relative_to(project_dir))
-		for hook_json in sorted((project_dir / "hooks" / "claude").glob("*/hook.json"))
-	]
+	try:
+		config = json.loads(config_path.read_text(encoding="utf-8"))
+	except json.JSONDecodeError as error:
+		raise ValueError(f"Invalid JSON in generated-file guard configuration: {error}") from error
 
-	rules = []
-	for rule in CONFIG_REPO_RULES:
-		rule_copy = dict(rule)
-		if rule["label"] == "Claude skill index":
-			rule_copy["sources"] = rule["sources"] + skill_manifests
-		elif rule["label"] == "generated docs tables":
-			rule_copy["sources"] = rule["sources"] + skill_manifests + hook_manifests
-		rules.append(rule_copy)
+	if not isinstance(config, dict):
+		raise ValueError("Generated-file guard configuration must contain a JSON object.")
 
-	for hook_script in sorted((project_dir / "hooks" / "claude").glob("*/*.sh")):
-		rules.append(
-			{
-				"generated": [f"dist/claude/hooks/{hook_script.name}"],
-				"sources": [
-					str(hook_script.relative_to(project_dir)),
-					str(hook_script.with_name("hook.json").relative_to(project_dir)),
-				],
-				"label": f"Claude hook {hook_script.name}",
-			}
-		)
+	return config
+
+
+# Loads project-specific generated/source rules from a config file. Each rule
+# is a flat, directory-level {generated, sources, label} mapping — file-level
+# or per-match granularity is intentionally out of scope here; dedicated
+# checks (e.g. hook or skill manifest sync checks) cover finer-grained drift.
+def load_rules(config_path: Path) -> list[dict[str, Any]]:
+	config = _load_config(config_path)
+	rules = config.get("rules", [])
+
+	if not isinstance(rules, list):
+		raise ValueError("Generated-file guard configuration 'rules' must be an array.")
+
+	for rule in rules:
+		if (
+			not isinstance(rule, dict)
+			or not isinstance(rule.get("generated"), list)
+			or not isinstance(rule.get("sources"), list)
+			or not isinstance(rule.get("label"), str)
+		):
+			raise ValueError(
+				"Generated-file guard configuration rules must each have "
+				"'generated' (array), 'sources' (array), and 'label' (string)."
+			)
 
 	return rules
 
@@ -235,12 +182,12 @@ def generic_source_changed(path: str) -> bool:
 	)
 
 
-def guard(project_dir: Path) -> dict[str, Any]:
+def guard(project_dir: Path, config_path: Path | None = None) -> dict[str, Any]:
 	changed = changed_paths(project_dir)
 	findings: list[Finding] = []
 	rule_generated = []
 
-	for rule in config_repo_rules(project_dir):
+	for rule in load_rules(config_path or project_dir / DEFAULT_CONFIG_FILENAME):
 		generated = rule["generated"]
 		sources = rule["sources"]
 		if not generated_exists(project_dir, generated):
@@ -331,6 +278,14 @@ def main() -> None:
 	parser.add_argument(
 		"--json", action="store_true", help="Print machine-readable JSON."
 	)
+	parser.add_argument(
+		"--config",
+		type=Path,
+		help=(
+			"Path to generated-file guard configuration. Defaults to "
+			f"<project-dir>/{DEFAULT_CONFIG_FILENAME}."
+		),
+	)
 	args = parser.parse_args()
 
 	project_dir = args.project_dir.resolve()
@@ -338,7 +293,14 @@ def main() -> None:
 		print(f"Project directory not found: {project_dir}", file=sys.stderr)
 		sys.exit(2)
 
-	result = guard(project_dir)
+	config_path = args.config or project_dir / DEFAULT_CONFIG_FILENAME
+
+	try:
+		result = guard(project_dir, config_path)
+	except ValueError as error:
+		print(str(error), file=sys.stderr)
+		sys.exit(2)
+
 	if args.json:
 		print(json.dumps(result, indent=2, sort_keys=True))
 	else:

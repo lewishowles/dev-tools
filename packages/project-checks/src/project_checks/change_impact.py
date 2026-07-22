@@ -219,7 +219,7 @@ def generated_guard(project_dir: Path) -> dict[str, Any]:
 
 	try:
 		result = guard(project_dir)
-	except OSError:
+	except (OSError, ValueError):
 		return {"available": False, "findings": [], "ok": False}
 
 	result["available"] = True
