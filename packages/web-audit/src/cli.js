@@ -34,17 +34,21 @@ function toneForImpact(impact) {
  *
  * @param  {string[]}  argumentsList
  *     Command-line arguments after the render command.
+ * @param  {object}  ui
+ *     CLI styling instance.
  * @returns  {Promise<number>}
  *     Process exit code.
  */
-async function runRender(argumentsList) {
+async function runRender(argumentsList, ui) {
 	const [source, ...options] = argumentsList;
 
 	let selector;
 
 	for (let index = 0; index < options.length; index += 1) {
 		if (options[index] !== "--selector" || !options[index + 1]) {
-			console.error(status("failed", "", { label: "Expected --selector followed by a CSS selector." }));
+			console.error(
+				status("failed", "", { label: "Expected --selector followed by a CSS selector." }),
+			);
 
 			return 1;
 		}
@@ -60,7 +64,9 @@ async function runRender(argumentsList) {
 	}
 
 	try {
-		const renderedHtml = await renderPage(source, { selector });
+		const renderedHtml = await ui.spinner.run("Rendering page", () =>
+			renderPage(source, { selector }),
+		);
 
 		process.stdout.write(renderedHtml);
 
@@ -89,7 +95,11 @@ export async function runCli(argumentsList) {
 		stdout: process.stdout,
 	});
 
-	if (argumentsList.length === 0 || argumentsList.includes("--help") || argumentsList.includes("-h")) {
+	if (
+		argumentsList.length === 0 ||
+		argumentsList.includes("--help") ||
+		argumentsList.includes("-h")
+	) {
 		console.log(usage);
 
 		return 0;
@@ -98,7 +108,10 @@ export async function runCli(argumentsList) {
 	const [command, source, ...extraArguments] = argumentsList;
 
 	if (command === "render") {
-		return runRender([source, ...extraArguments].filter((argument) => argument !== undefined));
+		return runRender(
+			[source, ...extraArguments].filter((argument) => argument !== undefined),
+			ui,
+		);
 	}
 
 	if (command !== "scan-site") {
@@ -109,14 +122,19 @@ export async function runCli(argumentsList) {
 	}
 
 	if (!source || extraArguments.length > 0) {
-		console.error(status("failed", "", { ...ui.options, label: "Expected one URL or HTML file after scan-site." }));
+		console.error(
+			status("failed", "", {
+				...ui.options,
+				label: "Expected one URL or HTML file after scan-site.",
+			}),
+		);
 		console.error(`\n${usage}`);
 
 		return 1;
 	}
 
 	try {
-		const loadedPage = await loadPage(source);
+		const loadedPage = await ui.spinner.run("Loading page", () => loadPage(source));
 
 		try {
 			const elementCount = await loadedPage.page.locator("*").count();
@@ -139,7 +157,9 @@ export async function runCli(argumentsList) {
 			];
 
 			if (violations.length === 0) {
-				console.log(status("success", "", { ...ui.options, label: "No accessibility violations found." }));
+				console.log(
+					status("success", "", { ...ui.options, label: "No accessibility violations found." }),
+				);
 			} else {
 				for (const violation of violations) {
 					console.log(
