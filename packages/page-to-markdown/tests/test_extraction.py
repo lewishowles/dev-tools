@@ -37,6 +37,7 @@ def extract_fixture(name: str, base_url: str | None = None) -> tuple[str, str, s
 		"relative-links.html",
 		"short-page.html",
 		"valueless-attributes.html",
+		"inline-code-with-tag-text.html",
 	],
 )
 def test_every_fixture_runs_through_local_extraction_pipeline(
@@ -110,6 +111,20 @@ def test_low_confidence_fixtures_include_actionable_report_reasons(
 
 	assert report.verdict == "low-confidence"
 	assert any(reason in candidate for candidate in report.reasons)
+
+
+def test_inline_code_with_escaped_tag_text_does_not_swallow_following_content() -> None:
+	"""`<title>`/`<textarea>` are RCDATA in html.parser: unescaped text re-fed to
+	the parser would be read as a real tag and swallow the rest of the
+	document as raw text until a closing tag that never arrives."""
+	_, selected_html, markdown = extract_fixture("inline-code-with-tag-text.html")
+
+	assert "<title>" not in selected_html
+	assert markdown == (
+		"# Escaped tags inside inline code\n\n"
+		"Start a page with `<title>` in the head.\n\n"
+		"This paragraph must survive after the code sample above.\n"
+	)
 
 
 def test_valueless_img_attributes_do_not_crash_conversion() -> None:
