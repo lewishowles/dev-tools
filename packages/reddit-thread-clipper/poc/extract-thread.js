@@ -52,6 +52,7 @@
 
 		// Read text and nested rendered elements from the light DOM.
 		const childNodes = root.childNodes ? Array.from(root.childNodes) : [];
+
 		for (const childNode of childNodes) {
 			if (childNode.nodeType === Node.TEXT_NODE) {
 				textParts.push(childNode.nodeValue || "");
@@ -85,6 +86,7 @@
 
 		// Walk light DOM nodes while skipping nested post and comment hosts.
 		const childNodes = root.childNodes ? Array.from(root.childNodes) : [];
+
 		for (const childNode of childNodes) {
 			if (childNode.nodeType === Node.TEXT_NODE) {
 				textParts.push(childNode.nodeValue || "");
@@ -217,14 +219,17 @@
 	function readTextField(element, attributeNames, selectors) {
 		// Reddit exposes some fields directly on its custom elements.
 		const attributeValue = readAttributeValue(element, attributeNames);
+
 		if (attributeValue) {
 			return attributeValue;
 		}
 
 		// Other fields are rendered into slots or ordinary descendants.
 		const matchingElement = findRenderedElement(element, selectors);
+
 		if (matchingElement) {
 			const renderedText = getRenderedText(matchingElement);
+
 			if (renderedText) {
 				return renderedText;
 			}
@@ -248,22 +253,21 @@
 	function readPermalink(element, attributeNames, selectors) {
 		// Prefer direct custom-element attributes before searching rendered links.
 		const directValue = readAttributeValue(element, attributeNames);
+
 		if (directValue) {
 			return normalisePermalink(directValue);
 		}
 
 		// Link attributes provide a fallback when Reddit omits the custom attribute.
 		const linkElement = findRenderedElement(element, selectors);
+
 		if (!linkElement) {
 			return null;
 		}
 
 		// Read href and permalink-style attributes from the matching link.
-		const linkValue = readAttributeValue(linkElement, [
-			"content-href",
-			"href",
-			"permalink",
-		]);
+		const linkValue = readAttributeValue(linkElement, ["content-href", "href", "permalink"]);
+
 		return linkValue ? normalisePermalink(linkValue) : null;
 	}
 
@@ -279,7 +283,7 @@
 		// URL construction resolves a relative link locally and performs no request.
 		try {
 			return new URL(value, document.baseURI).href;
-		} catch (error) {
+		} catch {
 			return value;
 		}
 	}
@@ -301,12 +305,14 @@
 		// Remove display punctuation before trying numeric forms.
 		const scoreText = String(value).replace(/,/g, "").trim();
 		const plainScore = Number(scoreText);
+
 		if (Number.isFinite(plainScore)) {
 			return plainScore;
 		}
 
 		// Support compact displays such as 1.2k while preserving unknown text.
 		const scoreMatch = scoreText.match(/^(-?\d+(?:\.\d+)?)\s*([kmb])?/i);
+
 		if (!scoreMatch) {
 			return scoreText;
 		}
@@ -317,7 +323,9 @@
 			k: 1000,
 			m: 1000000,
 		};
+
 		const suffix = scoreMatch[2] ? scoreMatch[2].toLowerCase() : "";
+
 		return Number(scoreMatch[1]) * (scoreMultipliers[suffix] || 1);
 	}
 
@@ -336,10 +344,7 @@
 				continue;
 			}
 
-			if (
-				element.hasAttribute("disabled") ||
-				element.getAttribute("aria-disabled") === "true"
-			) {
+			if (element.hasAttribute("disabled") || element.getAttribute("aria-disabled") === "true") {
 				continue;
 			}
 
@@ -396,10 +401,7 @@
 				control.click();
 				clickedCount += 1;
 			} catch (error) {
-				console.warn(
-					"[reddit-thread-clipper] Could not click an expansion control.",
-					error,
-				);
+				console.warn("[reddit-thread-clipper] Could not click an expansion control.", error);
 			}
 		}
 
@@ -421,6 +423,7 @@
 		while (passes < maxPasses) {
 			// Rescan after every render wait because Reddit loads comments in waves.
 			const controls = findExpandControls();
+
 			if (controls.length === 0) {
 				return {
 					passes,
@@ -430,6 +433,7 @@
 
 			// Start waiting before clicks so synchronous DOM changes are covered too.
 			const renderWait = waitForRenderedContent();
+
 			clickExpandControls(controls);
 			passes += 1;
 			await renderWait;
@@ -463,11 +467,7 @@
 	 */
 	function readBody(element, selectors) {
 		// Prefer known body slots, then exclude nested thread items from the fallback.
-		return (
-			readTextField(element, [], selectors) ||
-			getOwnRenderedText(element) ||
-			null
-		);
+		return readTextField(element, [], selectors) || getOwnRenderedText(element) || null;
 	}
 
 	/**
@@ -489,12 +489,7 @@
 		const author = readTextField(
 			postElement,
 			["post-author", "author", "author-name"],
-			[
-				'[slot="author"]',
-				'[data-testid="post-author"]',
-				'a[href^="/user/"]',
-				'a[href^="/u/"]',
-			],
+			['[slot="author"]', '[data-testid="post-author"]', 'a[href^="/user/"]', 'a[href^="/u/"]'],
 		);
 
 		const rawScore = readTextField(
@@ -566,8 +561,8 @@
 		);
 
 		// Recurse only into the nearest comments so each reply belongs to one parent.
-		const replies = collectDirectCommentElements(commentElement).map(
-			(replyElement) => extractComment(replyElement),
+		const replies = collectDirectCommentElements(commentElement).map((replyElement) =>
+			extractComment(replyElement),
 		);
 
 		return {
@@ -589,9 +584,7 @@
 		// Walk once so post and comment hosts include open shadow-root content.
 		const renderedElements = Array.from(walkRenderedTree(document));
 
-		const postElement = renderedElements.find((element) =>
-			element.matches("shreddit-post"),
-		);
+		const postElement = renderedElements.find((element) => element.matches("shreddit-post"));
 
 		const commentElements = collectDirectCommentElements(document);
 
@@ -606,9 +599,7 @@
 					title: null,
 				};
 
-		const comments = commentElements.map((commentElement) =>
-			extractComment(commentElement),
-		);
+		const comments = commentElements.map((commentElement) => extractComment(commentElement));
 
 		return {
 			post,
@@ -645,24 +636,18 @@
 
 	if (typeof copy === "function") {
 		try {
+			// eslint-disable-next-line no-undef -- copy is supplied by DevTools.
 			copy(serialisedThread);
 			copiedToClipboard = true;
 		} catch (error) {
-			console.warn(
-				"[reddit-thread-clipper] Clipboard copy failed; use the logged JSON.",
-				error,
-			);
+			console.warn("[reddit-thread-clipper] Clipboard copy failed; use the logged JSON.", error);
 		}
 	} else {
-		console.warn(
-			"[reddit-thread-clipper] DevTools copy() is unavailable; use the logged JSON.",
-		);
+		console.warn("[reddit-thread-clipper] DevTools copy() is unavailable; use the logged JSON.");
 	}
 
 	// Report both capture size and the exact expansion stop condition.
-	const copyStatus = copiedToClipboard
-		? "JSON copied to the clipboard"
-		: "JSON logged below";
+	const copyStatus = copiedToClipboard ? "JSON copied to the clipboard" : "JSON logged below";
 
 	console.info(
 		"[reddit-thread-clipper] Captured " +
