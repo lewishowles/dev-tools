@@ -443,6 +443,45 @@ def package_test_target_style(name: str, command: str) -> str | None:
 	return None
 
 
+# Directories never worth walking when locating pytest test files.
+PYTHON_EXCLUDED_DIRS = EXCLUDED_DIRS | {".venv", "venv", "__pycache__"}
+
+
+def has_pytest_test_files(project_dir: Path) -> bool:
+	for root, dirs, files in os.walk(project_dir):
+		dirs[:] = [
+			name
+			for name in dirs
+			if name not in PYTHON_EXCLUDED_DIRS and not name.startswith(".")
+		]
+		if any(
+			name.startswith("test_") or name.endswith("_test.py")
+			for name in files
+			if name.endswith(".py")
+		):
+			return True
+	return False
+
+
+def detect_python_checks(project_dir: Path, existing_names: set[str]) -> list[Check]:
+	if not (project_dir / "pyproject.toml").exists():
+		return []
+	if not shutil.which("uv"):
+		return []
+	if not has_pytest_test_files(project_dir):
+		return []
+
+	name = "test:unit:python" if "test:unit" in existing_names else "test:unit"
+	return [
+		Check(
+			name,
+			["uv", "run", "pytest"],
+			"pytest test suite",
+			test_target_style=TEST_TARGET_STYLE_PATHS,
+		)
+	]
+
+
 def discover_checks(project_dir: Path) -> tuple[list[Check], list[str]]:
 	checks: list[Check] = []
 	skipped: list[str] = []
@@ -484,6 +523,7 @@ def discover_checks(project_dir: Path) -> tuple[list[Check], list[str]]:
 			)
 
 	checks.extend(detect_xcode_checks(project_dir))
+	checks.extend(detect_python_checks(project_dir, {check.name for check in checks}))
 
 	if not checks:
 		skipped.append("no conservative diagnostics command found")

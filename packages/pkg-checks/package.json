@@ -17,7 +17,7 @@
 	},
 	"scripts": {
 		"pkg-checks": "bun src/cli.js",
-		"test": "bun test"
+		"test:unit": "bun test"
 	},
 	"dependencies": {
 		"@lewishowles/cli-style": "0.11.0"
