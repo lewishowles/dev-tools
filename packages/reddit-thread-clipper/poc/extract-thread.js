@@ -111,6 +111,52 @@
 	}
 
 	/**
+	 * Walk the nearest rendered comment descendants without entering a comment.
+	 *
+	 * @param  {Document|DocumentFragment|Element}  root
+	 *     The rendered root whose direct comment descendants should be found.
+	 * @yields {Element}
+	 *     Each nearest descendant comment in rendered-tree order.
+	 */
+	function* walkDirectCommentDescendants(root) {
+		// Inspect light DOM children while treating comments as tree boundaries.
+		const childElements = root.children ? Array.from(root.children) : [];
+
+		for (const childElement of childElements) {
+			if (childElement.matches("shreddit-comment")) {
+				yield childElement;
+				continue;
+			}
+
+			yield* walkDirectCommentDescendants(childElement);
+		}
+
+		// The root itself may be a comment host with an open shadow tree.
+		if (root.shadowRoot) {
+			yield* walkDirectCommentDescendants(root.shadowRoot);
+		}
+	}
+
+	/**
+	 * Collect the nearest rendered comment descendants for one tree level.
+	 *
+	 * @param  {Document|DocumentFragment|Element}  root
+	 *     The rendered root whose direct comment descendants should be found.
+	 * @returns {Element[]}
+	 *     The nearest descendant comments in rendered-tree order.
+	 */
+	function collectDirectCommentElements(root) {
+		// Collect comments without descending past the nested thread boundary.
+		const commentElements = [];
+
+		for (const commentElement of walkDirectCommentDescendants(root)) {
+			commentElements.push(commentElement);
+		}
+
+		return commentElements;
+	}
+
+	/**
 	 * Find the first descendant matching one of the supplied selectors.
 	 *
 	 * @param  {Document|DocumentFragment|Element}  root
@@ -391,6 +437,7 @@
 
 		// Rescan after the final wait so an empty final wave reports accurately.
 		const remainingControls = findExpandControls();
+
 		if (remainingControls.length === 0) {
 			return {
 				passes,
@@ -424,51 +471,6 @@
 	}
 
 	/**
-	 * Read a comment's declared or inferred nesting depth.
-	 *
-	 * @param  {Element}  commentElement
-	 *     The comment custom element.
-	 * @returns {number}
-	 *     The rendered comment depth.
-	 */
-	function readCommentDepth(commentElement) {
-		// Reddit may expose depth directly, but the attribute is not stable.
-		const declaredDepth = readAttributeValue(commentElement, [
-			"comment-depth",
-			"depth",
-			"depth-level",
-		]);
-		const numericDepth = Number.parseInt(declaredDepth, 10);
-		if (Number.isInteger(numericDepth)) {
-			return numericDepth;
-		}
-
-		// Count comment hosts through light DOM and open shadow-root boundaries.
-		let depth = 0;
-		let currentElement = commentElement;
-		while (currentElement) {
-			let parentElement = currentElement.parentElement;
-
-			if (!parentElement) {
-				const rootNode = currentElement.getRootNode();
-				parentElement = rootNode && rootNode.host ? rootNode.host : null;
-			}
-
-			if (!parentElement) {
-				break;
-			}
-
-			if (parentElement.matches("shreddit-comment")) {
-				depth += 1;
-			}
-
-			currentElement = parentElement;
-		}
-
-		return depth;
-	}
-
-	/**
 	 * Extract the structured post fields from a Reddit post host.
 	 *
 	 * @param  {Element}  postElement
@@ -483,6 +485,7 @@
 			["post-title", "title"],
 			['[slot="title"]', "h1", '[data-testid="post-title"]'],
 		);
+
 		const author = readTextField(
 			postElement,
 			["post-author", "author", "author-name"],
@@ -493,17 +496,20 @@
 				'a[href^="/u/"]',
 			],
 		);
+
 		const rawScore = readTextField(
 			postElement,
 			["post-score", "score"],
 			['[data-testid="post-score"]', '[aria-label*="point"]'],
 		);
+
 		const body = readBody(postElement, [
 			'[slot="text-body"]',
 			'[slot="post-content"]',
 			'[data-testid="post-text"]',
 			".md",
 		]);
+
 		const permalink = readPermalink(
 			postElement,
 			["permalink", "content-href"],
@@ -524,7 +530,7 @@
 	 *
 	 * @param  {Element}  commentElement
 	 *     The comment custom element.
-	 * @returns {{author: string|null, score: number|string|null, body: string|null, permalink: string|null, depth: number}}
+	 * @returns {{author: string|null, body: string|null, permalink: string|null, score: number|string|null, replies: object[]}}
 	 *     The structured comment object.
 	 */
 	function extractComment(commentElement) {
@@ -539,30 +545,37 @@
 				'a[href^="/u/"]',
 			],
 		);
+
 		const rawScore = readTextField(
 			commentElement,
 			["comment-score", "score"],
 			['[data-testid="comment-score"]', '[aria-label*="point"]'],
 		);
+
 		const body = readBody(commentElement, [
 			'[slot="comment"]',
 			'[slot="text-body"]',
 			'[data-testid="comment"]',
 			".md",
 		]);
+
 		const permalink = readPermalink(
 			commentElement,
 			["permalink", "comment-href", "content-href"],
 			['a[href*="/comments/"]', 'a[href*="/comment/"]'],
 		);
-		const depth = readCommentDepth(commentElement);
+
+		// Recurse only into the nearest comments so each reply belongs to one parent.
+		const replies = collectDirectCommentElements(commentElement).map(
+			(replyElement) => extractComment(replyElement),
+		);
 
 		return {
 			author: author || null,
 			body,
-			depth,
 			permalink,
 			score: normaliseScore(rawScore),
+			replies,
 		};
 	}
 
@@ -575,12 +588,12 @@
 	function extractThread() {
 		// Walk once so post and comment hosts include open shadow-root content.
 		const renderedElements = Array.from(walkRenderedTree(document));
+
 		const postElement = renderedElements.find((element) =>
 			element.matches("shreddit-post"),
 		);
-		const commentElements = renderedElements.filter((element) =>
-			element.matches("shreddit-comment"),
-		);
+
+		const commentElements = collectDirectCommentElements(document);
 
 		// Keep missing post fields explicit if Reddit's DOM changes under the POC.
 		const post = postElement
@@ -592,14 +605,34 @@
 					score: null,
 					title: null,
 				};
+
 		const comments = commentElements.map((commentElement) =>
 			extractComment(commentElement),
 		);
 
 		return {
-			comments,
 			post,
+			comments,
 		};
+	}
+
+	/**
+	 * Count comments recursively for the console summary.
+	 *
+	 * @param  {object[]}  comments
+	 *     The comments whose descendants should be counted.
+	 * @returns {number}
+	 *     The total number of comments in the tree.
+	 */
+	function countComments(comments) {
+		// Include every comment so nested captures are not under-reported.
+		let count = 0;
+
+		for (const comment of comments) {
+			count += 1 + countComments(comment.replies);
+		}
+
+		return count;
 	}
 
 	// Expand first, then extract only what Reddit rendered in the current tab.
@@ -609,6 +642,7 @@
 
 	// Attempt DevTools clipboard copy while always retaining a visible console output.
 	let copiedToClipboard = false;
+
 	if (typeof copy === "function") {
 		try {
 			copy(serialisedThread);
@@ -629,9 +663,10 @@
 	const copyStatus = copiedToClipboard
 		? "JSON copied to the clipboard"
 		: "JSON logged below";
+
 	console.info(
 		"[reddit-thread-clipper] Captured " +
-			thread.comments.length +
+			countComments(thread.comments) +
 			" comments. Expansion stopped: " +
 			expansionResult.stopReason +
 			". " +
