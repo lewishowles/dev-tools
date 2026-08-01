@@ -1,0 +1,10 @@
+# Local source screenshots must never become distributable fixtures.
+screenshots/
+source/
+*.screenshot.*
+
+# Generated benchmark output belongs outside version control.
+variants/
+output/
+results/
+*.generated.json

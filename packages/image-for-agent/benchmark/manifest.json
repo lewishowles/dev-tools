@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "source": {
+    "screenshot_ref": "fixtures/synthetic-ui.png",
+    "retina_scale": 2
+  },
+  "task_classes": [
+    {
+      "id": "overview",
+      "description": "Identify the major regions and overall layout."
+    },
+    {
+      "id": "ui",
+      "description": "Inspect controls, states and visual relationships."
+    },
+    {
+      "id": "text",
+      "description": "Read text that remains legible at the selected size."
+    },
+    {
+      "id": "coordinates",
+      "description": "Map a visible target back to source-image coordinates."
+    }
+  ],
+  "questions": [
+    {
+      "id": "overview-regions",
+      "task_class": "overview",
+      "screenshot_ref": "fixtures/synthetic-ui.png",
+      "question": "How many major coloured panels are visible?",
+      "expected_answer": "Three panels.",
+      "notes": "Use the full-screen variants for the broad layout question."
+    },
+    {
+      "id": "ui-selected-state",
+      "task_class": "ui",
+      "screenshot_ref": "fixtures/synthetic-ui.png",
+      "question": "Which panel contains the selected-state marker?",
+      "expected_answer": "The centre panel.",
+      "notes": "The selected marker is a bright green outline."
+    },
+    {
+      "id": "text-label",
+      "task_class": "text",
+      "screenshot_ref": "fixtures/synthetic-ui.png",
+      "question": "What short label appears in the text panel?",
+      "expected_answer": "TEXT.",
+      "notes": "Compare the full-screen and text-crop variants manually."
+    },
+    {
+      "id": "coordinates-marker",
+      "task_class": "coordinates",
+      "screenshot_ref": "fixtures/synthetic-ui.png",
+      "question": "Where is the marker relative to the source image?",
+      "expected_answer": "Near the centre of the crop region.",
+      "notes": "Apply the reported crop origin and x/y scale factors."
+    }
+  ],
+  "variants": [
+    {
+      "name": "retina-1x",
+      "target": {
+        "kind": "logical_retina"
+      },
+      "format": "png",
+      "quality": null,
+      "crop": null,
+      "pair_with": null
+    },
+    {
+      "name": "1080p",
+      "target": {
+        "kind": "bounding_box",
+        "max_width": 1920,
+        "max_height": 1080
+      },
+      "format": "png",
+      "quality": null,
+      "crop": null,
+      "pair_with": null
+    },
+    {
+      "name": "1366x768",
+      "target": {
+        "kind": "bounding_box",
+        "max_width": 1366,
+        "max_height": 768
+      },
+      "format": "png",
+      "quality": null,
+      "crop": null,
+      "pair_with": null
+    },
+    {
+      "name": "1024-long-edge",
+      "target": {
+        "kind": "long_edge",
+        "value": 1024
+      },
+      "format": "png",
+      "quality": null,
+      "crop": null,
+      "pair_with": null
+    },
+    {
+      "name": "768-long-edge",
+      "target": {
+        "kind": "long_edge",
+        "value": 768
+      },
+      "format": "png",
+      "quality": null,
+      "crop": null,
+      "pair_with": null
+    },
+    {
+      "name": "512-long-edge",
+      "target": {
+        "kind": "long_edge",
+        "value": 512
+      },
+      "format": "png",
+      "quality": null,
+      "crop": null,
+      "pair_with": null
+    },
+    {
+      "name": "text-crop-512",
+      "target": {
+        "kind": "long_edge",
+        "value": 512
+      },
+      "format": "png",
+      "quality": null,
+      "crop": {
+        "x": 128,
+        "y": 96,
+        "width": 768,
+        "height": 576
+      },
+      "pair_with": "512-long-edge"
+    }
+  ]
+}

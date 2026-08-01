@@ -5,6 +5,7 @@ requires-python = ">=3.11"
 [manifest]
 members = [
     "dev-tools",
+    "image-for-agent",
     "page-to-markdown",
     "project-checks",
 ]
@@ -36,6 +37,11 @@ dev = [
     { name = "pytest" },
     { name = "ruff", specifier = ">=0.15.22" },
 ]
+
+[[package]]
+name = "image-for-agent"
+version = "0.1.0"
+source = { editable = "packages/image-for-agent" }
 
 [[package]]
 name = "iniconfig"

@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/lewishowles/dev-tools/blob/main/packages/image-for-agent/benchmark/manifest.schema.json",
+  "title": "Image-for-agent benchmark manifest",
+  "type": "object",
+  "required": ["schema_version", "source", "task_classes", "questions", "variants"],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "source": {
+      "type": "object",
+      "required": ["screenshot_ref", "retina_scale"],
+      "properties": {
+        "screenshot_ref": { "type": "string", "minLength": 1 },
+        "retina_scale": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "task_classes": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "required": ["id", "description"],
+        "properties": {
+          "id": {
+            "enum": ["overview", "ui", "text", "coordinates"]
+          },
+          "description": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "questions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "task_class",
+          "screenshot_ref",
+          "question",
+          "expected_answer",
+          "notes"
+        ],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "task_class": {
+            "enum": ["overview", "ui", "text", "coordinates"]
+          },
+          "screenshot_ref": { "type": "string", "minLength": 1 },
+          "question": { "type": "string", "minLength": 1 },
+          "expected_answer": { "type": "string", "minLength": 1 },
+          "notes": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "variants": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/variant"
+      }
+    }
+  },
+  "$defs": {
+    "crop": {
+      "type": ["object", "null"],
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 },
+        "width": { "type": "integer", "exclusiveMinimum": 0 },
+        "height": { "type": "integer", "exclusiveMinimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "variant": {
+      "type": "object",
+      "required": ["name", "target", "format", "quality", "crop", "pair_with"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+        },
+        "target": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["kind"],
+              "properties": {
+                "kind": { "const": "logical_retina" }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": ["kind", "max_width", "max_height"],
+              "properties": {
+                "kind": { "const": "bounding_box" },
+                "max_width": { "type": "integer", "exclusiveMinimum": 0 },
+                "max_height": { "type": "integer", "exclusiveMinimum": 0 }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": ["kind", "value"],
+              "properties": {
+                "kind": { "const": "long_edge" },
+                "value": { "type": "integer", "exclusiveMinimum": 0 }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "format": { "const": "png" },
+        "quality": {
+          "type": ["string", "integer", "null"]
+        },
+        "crop": {
+          "$ref": "#/$defs/crop"
+        },
+        "pair_with": {
+          "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
