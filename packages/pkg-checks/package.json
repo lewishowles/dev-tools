@@ -1,6 +1,6 @@
 {
 	"name": "@lewishowles/pkg-checks",
-	"version": "0.2.2",
+	"version": "0.2.3",
 	"description": "Validate package exports, size budgets, runtime dependencies, type declarations, and test coverage.",
 	"license": "MIT",
 	"repository": {
