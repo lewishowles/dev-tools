@@ -31,6 +31,7 @@ class SourceResult:
 
 
 def build_parser():
+	"""Build the argument parser for the page-to-markdown command."""
 	parser = argparse.ArgumentParser(
 		prog="page-to-markdown",
 		description="Convert a URL, file, or piped HTML into compact Markdown.",
@@ -158,6 +159,14 @@ def _format_failed_block(result):
 
 
 def main(argv=None):
+	"""Convert requested sources and write Markdown and optional reports.
+
+	Args:
+		argv: Optional command-line arguments, excluding the executable name. Defaults to the process arguments.
+
+	Returns:
+		0 when at least one source converts successfully, or 1 when conversion or an output operation fails.
+	"""
 	parser = build_parser()
 	args = parser.parse_args(argv)
 
@@ -204,8 +213,7 @@ def main(argv=None):
 		)
 
 	for result in results:
-		print(_render_report(result), file=sys.stderr)
-		print(file=sys.stderr)
+		sys.stderr.write(f"{_render_report(result)}\n\n")
 
 	successful_results = [result for result in results if result.content is not None]
 
@@ -232,7 +240,9 @@ def main(argv=None):
 			with open(args.output, "w", encoding="utf-8") as f:
 				f.write(content)
 		except OSError as e:
-			print(f"error: could not write to {args.output}: {e}", file=sys.stderr)
+			sys.stderr.write(
+				status("failed", "Could not write output", f"{args.output}: {e}") + "\n"
+			)
 			return 1
 
 		if args.metadata:
@@ -251,8 +261,13 @@ def main(argv=None):
 					)
 					f.write("\n")
 			except OSError as e:
-				print(
-					f"error: could not write to {metadata_path}: {e}", file=sys.stderr
+				sys.stderr.write(
+					status(
+						"failed",
+						"Could not write metadata",
+						f"{metadata_path}: {e}",
+					)
+					+ "\n"
 				)
 				return 1
 	elif not args.copy:
@@ -267,22 +282,22 @@ def main(argv=None):
 			if not args.output:
 				sys.stdout.write(content)
 
-			print(
-				status("failed", "Clipboard copy failed", str(error)),
-				file=sys.stderr,
+			sys.stderr.write(
+				status("failed", "Clipboard copy failed", str(error)) + "\n"
 			)
 			return 1
 
 		if not args.output:
 			sys.stdout.write(preview)
-			print()
+			sys.stdout.write("\n")
 
-		print(
+		sys.stdout.write(
 			status(
 				"success",
 				"Copied to clipboard",
 				f"{len(content)} characters, {len(content.splitlines())} lines",
 			)
+			+ "\n"
 		)
 
 	return 0

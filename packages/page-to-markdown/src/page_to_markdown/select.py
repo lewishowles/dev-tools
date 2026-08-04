@@ -51,6 +51,7 @@ class _DomNode:
 		self.text = ""
 
 	def add_text(self, text):
+		"""Append parsed text as a child text node."""
 		node = _DomNode("#text", parent=self)
 		node.text = text
 		self.children.append(node)
@@ -85,6 +86,7 @@ class _DomBuilder(HTMLParser):
 		self._strip_depth = 0
 
 	def handle_starttag(self, tag, attrs):
+		"""Add a start tag unless it or an ancestor is being stripped."""
 		tag = tag.lower()
 
 		# If inside a stripped element, ignore everything.
@@ -113,6 +115,7 @@ class _DomBuilder(HTMLParser):
 		self._stack[-1].children.append(node)
 
 	def handle_endtag(self, tag):
+		"""Close matching open content or reduce stripped-content tracking."""
 		tag = tag.lower()
 		if self._strip_depth > 0:
 			if tag not in VOID_TAGS:
@@ -126,6 +129,7 @@ class _DomBuilder(HTMLParser):
 				break
 
 	def handle_data(self, data):
+		"""Append parsed text to the current node unless content is stripped."""
 		if self._strip_depth > 0:
 			return
 		self._stack[-1].add_text(data)

@@ -75,6 +75,7 @@ def _render_blocks(node: _DomNode, base_url: str | None) -> list[str]:
 	inline_parts = []
 
 	def flush_inline():
+		"""Normalise the buffered inline content into a block if any, then clear the buffer."""
 		inline = _normalise_inline("".join(inline_parts))
 		inline_parts.clear()
 		if inline:

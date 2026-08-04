@@ -31,10 +31,12 @@ class _CountingDomBuilder(_DomBuilder):
 		self.tag_counts = Counter()
 
 	def handle_starttag(self, tag, attrs):
+		"""Count a start tag before applying the shared builder's DOM handling."""
 		self.tag_counts[tag.lower()] += 1
 		super().handle_starttag(tag, attrs)
 
 	def handle_startendtag(self, tag, attrs):
+		"""Count a self-closing tag before applying the shared builder's DOM handling."""
 		self.tag_counts[tag.lower()] += 1
 		super().handle_startendtag(tag, attrs)
 
