@@ -100,7 +100,7 @@ export async function runCli(argumentsList) {
 		argumentsList.includes("--help") ||
 		argumentsList.includes("-h")
 	) {
-		console.log(usage);
+		ui.print(usage);
 
 		return 0;
 	}
@@ -139,7 +139,7 @@ export async function runCli(argumentsList) {
 		try {
 			const elementCount = await loadedPage.page.locator("*").count();
 
-			console.log(row("Loaded DOM", `${source} (${elementCount} elements)`, ui.options));
+			ui.print(row("Loaded DOM", `${source} (${elementCount} elements)`, ui.options));
 
 			const axeViolations = await runAxe(loadedPage.page);
 
@@ -157,12 +157,12 @@ export async function runCli(argumentsList) {
 			];
 
 			if (violations.length === 0) {
-				console.log(
+				ui.print(
 					status("success", "", { ...ui.options, label: "No accessibility violations found." }),
 				);
 			} else {
 				for (const violation of violations) {
-					console.log(
+					ui.print(
 						row(violation.id, `(${violation.impact}) ${violation.target}`, {
 							...ui.options,
 							result: toneForImpact(violation.impact),
