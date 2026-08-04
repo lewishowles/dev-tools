@@ -54,6 +54,38 @@
       "question": "Where is the marker relative to the source image?",
       "expected_answer": "Near the centre of the crop region.",
       "notes": "Apply the reported crop origin and x/y scale factors."
+    },
+    {
+      "id": "dev-panel-regions",
+      "task_class": "overview",
+      "screenshot_ref": "fixtures/dev-tool-panel.png",
+      "question": "What are the two major content panes labelled below the toolbar?",
+      "expected_answer": "Generated markup and Preview.",
+      "notes": "The pane titles are visible above the code and canvas regions."
+    },
+    {
+      "id": "dev-panel-lint-badge",
+      "task_class": "ui",
+      "screenshot_ref": "fixtures/dev-tool-panel.png",
+      "question": "What number appears in the pink Lint badge in the title bar?",
+      "expected_answer": "5.",
+      "notes": "Read the compact badge beside the Convert control."
+    },
+    {
+      "id": "dev-panel-code-class",
+      "task_class": "text",
+      "screenshot_ref": "fixtures/dev-tool-panel.png",
+      "question": "What class name is shown on the opening section line in Generated markup?",
+      "expected_answer": "panel-card.",
+      "notes": "The syntax-highlighted first code line shows class=\"panel-card\"."
+    },
+    {
+      "id": "dev-panel-action",
+      "task_class": "ui",
+      "screenshot_ref": "fixtures/dev-tool-panel.png",
+      "question": "What label is on the blue action button in Preview?",
+      "expected_answer": "Save draft.",
+      "notes": "The button appears inside the rendered card on the right."
     }
   ],
   "variants": [
