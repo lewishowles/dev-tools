@@ -176,6 +176,7 @@ class Result:
 
 
 def load_package_json(project_dir: Path) -> dict[str, Any]:
+	"""Load package metadata, returning an empty object when unavailable or invalid."""
 	path = project_dir / "package.json"
 	if not path.exists():
 		return {}
@@ -187,6 +188,7 @@ def load_package_json(project_dir: Path) -> dict[str, Any]:
 
 
 def detect_package_runner(project_dir: Path) -> list[str] | None:
+	"""Detect the package-manager command used to run project scripts."""
 	if (project_dir / "bun.lock").exists() or (project_dir / "bun.lockb").exists():
 		return ["bun", "run"]
 	if (project_dir / "pnpm-lock.yaml").exists():
@@ -201,6 +203,7 @@ def detect_package_runner(project_dir: Path) -> list[str] | None:
 
 
 def scan_xcode_layout(project_dir: Path) -> tuple[list[Path], list[Path], list[str]]:
+	"""Find shallow Xcode projects, workspaces, and UI-test targets in a project."""
 	# Single shallow walk that prunes heavy directories and never descends into .xcodeproj or
 	# .xcworkspace bundles. Returns (projects, workspaces, UI-test target names).
 	projects: list[Path] = []
@@ -231,13 +234,12 @@ def scan_xcode_layout(project_dir: Path) -> tuple[list[Path], list[Path], list[s
 	return projects, workspaces, sorted(ui_targets)
 
 
-# Returns a PBX assignment value from one project.pbxproj line.
-#
 # @param  {str}  line
 #     Source line from project.pbxproj.
 # @param  {str}  key
 #     PBX key to read.
 def pbx_assignment_value(line: str, key: str) -> str | None:
+	"""Extract a PBX assignment value from a project file line."""
 	match = re.search(rf"\b{re.escape(key)}\s*=\s*(.*?);", line)
 	if not match:
 		return None
@@ -248,31 +250,28 @@ def pbx_assignment_value(line: str, key: str) -> str | None:
 	return value
 
 
-# Returns the display name embedded in a PBX object reference comment.
-#
 # @param  {str}  line
 #     Object header line from project.pbxproj.
 def pbx_reference_name(line: str) -> str | None:
+	"""Extract the display name from a PBX object reference comment."""
 	match = re.search(r"/\*\s*(.*?)\s*\*/", line)
 	if match:
 		return match.group(1)
 	return None
 
 
-# Slugifies a target name for use in diagnostics check names.
-#
 # @param  {str}  name
 #     Xcode target name.
 def check_name_slug(name: str) -> str:
+	"""Convert an Xcode target name into a diagnostics-safe slug."""
 	slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 	return slug or "target"
 
 
-# Returns command-line tool target names declared by Xcode project files.
-#
 # @param  {list[Path]}  projects
 #     Xcode project bundles to inspect.
 def detect_xcode_tool_targets(projects: list[Path]) -> list[str]:
+	"""Find Xcode command-line tool targets declared in project files."""
 	targets: set[str] = set()
 
 	for project in projects:
@@ -330,6 +329,7 @@ def detect_xcode_tool_targets(projects: list[Path]) -> list[str]:
 def append_xcode_tool_checks(
 	checks: list[Check], base_command: list[str], tool_targets: list[str]
 ) -> None:
+	"""Append build checks for the detected Xcode command-line targets."""
 	if len(tool_targets) == 1:
 		checks.append(
 			Check(
@@ -365,6 +365,7 @@ def append_xcode_tool_checks(
 
 
 def find_xcode_scheme(container: Path) -> str:
+	"""Select the preferred shared Xcode scheme for a project container."""
 	scheme_dir = container / "xcshareddata" / "xcschemes"
 	schemes = (
 		sorted(path.stem for path in scheme_dir.glob("*.xcscheme"))
@@ -377,6 +378,7 @@ def find_xcode_scheme(container: Path) -> str:
 
 
 def detect_xcode_checks(project_dir: Path) -> list[Check]:
+	"""Build diagnostics checks for the project's Xcode containers."""
 	projects, workspaces, ui_targets = scan_xcode_layout(project_dir)
 	containers = workspaces or projects
 	if not containers:
@@ -423,6 +425,7 @@ def detect_xcode_checks(project_dir: Path) -> list[Check]:
 
 
 def script_is_safe(name: str, command: str) -> bool:
+	"""Return whether a package script is safe for conservative diagnostics."""
 	lower_command = command.lower()
 	if name not in SAFE_SCRIPT_NAMES:
 		return False
@@ -430,6 +433,7 @@ def script_is_safe(name: str, command: str) -> bool:
 
 
 def script_skip_reason(name: str, command: str) -> str | None:
+	"""Return why a package script should be skipped, if applicable."""
 	lower_command = command.lower()
 	if name in SKIPPED_SCRIPT_NAMES:
 		return "broad, long-running, or mutating script"
@@ -439,6 +443,7 @@ def script_skip_reason(name: str, command: str) -> str | None:
 
 
 def package_test_target_style(name: str, command: str) -> str | None:
+	"""Return the test-target style supported by a package script."""
 	if name in UNIT_TEST_SCRIPT_NAMES:
 		return TEST_TARGET_STYLE_PATHS
 	if name == "test:component" and "playwright" in command.lower():
@@ -451,6 +456,7 @@ PYTHON_EXCLUDED_DIRS = EXCLUDED_DIRS | {".venv", "venv", "__pycache__"}
 
 
 def has_pytest_test_files(project_dir: Path) -> bool:
+	"""Return whether the project contains a discoverable pytest file."""
 	for root, dirs, files in os.walk(project_dir):
 		dirs[:] = [
 			name
@@ -467,6 +473,7 @@ def has_pytest_test_files(project_dir: Path) -> bool:
 
 
 def detect_python_checks(project_dir: Path, existing_names: set[str]) -> list[Check]:
+	"""Build a Python unit-test check when the project supports pytest."""
 	if not (project_dir / "pyproject.toml").exists():
 		return []
 	if not shutil.which("uv"):
@@ -486,6 +493,7 @@ def detect_python_checks(project_dir: Path, existing_names: set[str]) -> list[Ch
 
 
 def discover_checks(project_dir: Path) -> tuple[list[Check], list[str]]:
+	"""Discover conservative diagnostics checks and skipped-script reasons."""
 	checks: list[Check] = []
 	skipped: list[str] = []
 
@@ -535,6 +543,7 @@ def discover_checks(project_dir: Path) -> tuple[list[Check], list[str]]:
 
 
 def dedupe_checks(checks: list[Check]) -> list[Check]:
+	"""Remove duplicate diagnostics checks when an equivalent check is present."""
 	names = {check.name for check in checks}
 	duplicates = {
 		"test:unit": "test:unit:run",
@@ -546,6 +555,7 @@ def dedupe_checks(checks: list[Check]) -> list[Check]:
 def selected_checks(
 	checks: list[Check], requested_names: list[str], run_all: bool
 ) -> tuple[list[Check], list[str]]:
+	"""Select requested checks or return errors for unknown or unsafe names."""
 	if run_all:
 		return [
 			check for check in dedupe_checks(checks) if not check.test_targets_required
@@ -567,6 +577,7 @@ def selected_checks(
 def resolve_test_targets(
 	project_dir: Path, test_files: list[str], test_globs: list[str]
 ) -> tuple[list[str], list[str]]:
+	"""Resolve explicit test files and globs within the project."""
 	targets: set[str] = set()
 	errors: list[str] = []
 
@@ -624,6 +635,7 @@ def resolve_test_targets(
 def resolve_fuzzy_test_targets(
 	project_dir: Path, check: Check, patterns: list[str]
 ) -> tuple[list[str], list[str]]:
+	"""Resolve test-target patterns against supported project test files."""
 	targets: set[str] = set()
 	errors: list[str] = []
 
@@ -673,6 +685,7 @@ def resolve_fuzzy_test_targets(
 
 
 def xcode_test_arguments(targets: list[str]) -> tuple[list[str], list[str]]:
+	"""Convert Swift test file paths into xcodebuild test arguments."""
 	arguments: list[str] = []
 	errors: list[str] = []
 
@@ -700,6 +713,7 @@ def xcode_test_arguments(targets: list[str]) -> tuple[list[str], list[str]]:
 def apply_test_targets(
 	checks: list[Check], targets: list[str]
 ) -> tuple[list[Check], list[str]]:
+	"""Apply test targets to one compatible diagnostics check."""
 	if not targets:
 		required_checks = [check for check in checks if check.test_targets_required]
 		if required_checks:
@@ -737,10 +751,12 @@ def apply_test_targets(
 
 
 def command_label(command: list[str]) -> str:
+	"""Format a command as shell-like text for diagnostics output."""
 	return " ".join(shlex.quote(part) for part in command)
 
 
 def redact(text: str) -> str:
+	"""Redact lines that may contain secrets from command output."""
 	lines = []
 	for line in ANSI_PATTERN.sub("", text).splitlines():
 		lower = line.lower()
@@ -762,6 +778,7 @@ def redact(text: str) -> str:
 
 
 def summarise_output(output: str, limit: int = 8) -> list[str]:
+	"""Return the useful tail of generic command output."""
 	clean = redact(output).strip()
 	if not clean:
 		return ["No output."]
@@ -771,6 +788,7 @@ def summarise_output(output: str, limit: int = 8) -> list[str]:
 
 
 def summarise_xcode(output: str, limit: int = 15) -> list[str]:
+	"""Return relevant Xcode errors and test results from command output."""
 	# xcodebuild's tail is linker noise. Prefer lines that name an error or a test result.
 	clean = redact(output).strip()
 	if not clean:
@@ -786,6 +804,7 @@ def summarise_xcode(output: str, limit: int = 15) -> list[str]:
 
 
 def summarise_for(check: Check, output: str) -> list[str]:
+	"""Summarise command output using the check's command type."""
 	if check.command and check.command[0] == "xcodebuild":
 		return summarise_xcode(output)
 	return summarise_output(output)
@@ -824,6 +843,7 @@ def _xcresulttool_json(args: list[str]) -> Any:
 
 
 def extract_xcresult_failures(bundle: Path, max_tests: int = 12) -> list[str]:
+	"""Extract failed test identifiers and reasons from an xcresult bundle."""
 	# Swift Testing writes expectation failures only to the result bundle, never to the
 	# console, so read the reason for each failed test back out via xcresulttool.
 	tests = _xcresulttool_json(["get", "test-results", "tests", "--path", str(bundle)])
@@ -873,6 +893,7 @@ def extract_xcresult_failures(bundle: Path, max_tests: int = 12) -> list[str]:
 
 
 def run_check(project_dir: Path, log_dir: Path, check: Check, timeout: int) -> Result:
+	"""Run one diagnostics check, persist its output, and return its result."""
 	started = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%S")
 	log_path = log_dir / f"{started}-{check.name.replace(':', '-')}.log"
 	effective_timeout = check.timeout or timeout
@@ -946,6 +967,7 @@ def run_check(project_dir: Path, log_dir: Path, check: Check, timeout: int) -> R
 def render_markdown(
 	project_dir: Path, results: list[Result], skipped: list[str]
 ) -> str:
+	"""Render diagnostics results as Markdown."""
 	lines = [
 		"# Project diagnostics",
 		"",
@@ -981,6 +1003,7 @@ def render_markdown(
 def render_list_markdown(
 	project_dir: Path, checks: list[Check], skipped: list[str]
 ) -> str:
+	"""Render available diagnostics checks as Markdown."""
 	lines = [
 		"# Project diagnostics",
 		"",
@@ -1008,6 +1031,7 @@ def render_list_markdown(
 
 
 def render_json(project_dir: Path, results: list[Result], skipped: list[str]) -> str:
+	"""Render diagnostics results as JSON."""
 	payload = {
 		"project": str(project_dir),
 		"results": [
@@ -1027,6 +1051,7 @@ def render_json(project_dir: Path, results: list[Result], skipped: list[str]) ->
 
 
 def render_list_json(project_dir: Path, checks: list[Check], skipped: list[str]) -> str:
+	"""Render available diagnostics checks as JSON."""
 	payload = {
 		"project": str(project_dir),
 		"mode": "list",
@@ -1044,6 +1069,11 @@ def render_list_json(project_dir: Path, checks: list[Check], skipped: list[str])
 
 
 def main() -> int:
+	"""Run the diagnostics CLI.
+
+	Returns:
+		0 when listing succeeds or all selected checks pass, 1 when a check fails, or 2 when arguments or project selection are invalid.
+	"""
 	parser = argparse.ArgumentParser(
 		description=DESCRIPTION,
 		epilog=EPILOG,

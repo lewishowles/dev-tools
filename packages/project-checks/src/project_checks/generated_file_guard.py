@@ -33,6 +33,7 @@ class Finding:
 
 
 def workspace_body(project_dir: Path) -> str:
+	"""Read workspace guidance used to discover generated output paths."""
 	path = project_dir / "WORKSPACE.md"
 	if not path.exists():
 		path = project_dir / "AGENT_CAPABILITIES.md"
@@ -43,6 +44,7 @@ def workspace_body(project_dir: Path) -> str:
 
 
 def section_lines(body: str, heading: str) -> list[str]:
+	"""Return the lines under a Markdown level-two heading."""
 	lines = body.splitlines()
 	start = None
 
@@ -64,6 +66,7 @@ def section_lines(body: str, heading: str) -> list[str]:
 
 
 def generated_paths_from_workspace(project_dir: Path) -> list[str]:
+	"""Extract generated-output paths from workspace guidance."""
 	body = workspace_body(project_dir)
 	paths = []
 
@@ -75,6 +78,7 @@ def generated_paths_from_workspace(project_dir: Path) -> list[str]:
 
 
 def git_status(project_dir: Path) -> list[str]:
+	"""Return Git status lines for a project, or an empty list when Git fails."""
 	completed = subprocess.run(
 		["git", "status", "--porcelain=v1"],
 		cwd=project_dir,
@@ -91,6 +95,7 @@ def git_status(project_dir: Path) -> list[str]:
 
 
 def changed_paths(project_dir: Path) -> list[str]:
+	"""Return unique, sorted paths changed in Git."""
 	paths = []
 
 	for line in git_status(project_dir):
@@ -103,6 +108,7 @@ def changed_paths(project_dir: Path) -> list[str]:
 
 
 def is_path_match(path: str, pattern: str) -> bool:
+	"""Return whether a path matches a file or directory pattern."""
 	if pattern.endswith("/"):
 		return path.startswith(pattern)
 
@@ -110,10 +116,12 @@ def is_path_match(path: str, pattern: str) -> bool:
 
 
 def any_changed(changed: list[str], patterns: list[str]) -> bool:
+	"""Return whether any changed path matches any supplied pattern."""
 	return any(is_path_match(path, pattern) for path in changed for pattern in patterns)
 
 
 def generated_exists(project_dir: Path, patterns: list[str]) -> bool:
+	"""Return whether any configured generated path exists."""
 	for pattern in patterns:
 		path = project_dir / pattern.rstrip("/")
 		if path.exists():
@@ -123,6 +131,7 @@ def generated_exists(project_dir: Path, patterns: list[str]) -> bool:
 
 
 def source_hint(sources: list[str]) -> str:
+	"""Format source paths for a finding message."""
 	return ", ".join(f"`{source}`" for source in sources)
 
 
@@ -150,6 +159,7 @@ def _load_config(config_path: Path) -> dict[str, Any]:
 # or per-match granularity is intentionally out of scope here; dedicated
 # checks (e.g. hook or skill manifest sync checks) cover finer-grained drift.
 def load_rules(config_path: Path) -> list[dict[str, Any]]:
+	"""Load and validate generated/source rules from a configuration file."""
 	config = _load_config(config_path)
 	rules = config.get("rules", [])
 
@@ -172,6 +182,7 @@ def load_rules(config_path: Path) -> list[dict[str, Any]]:
 
 
 def generic_generated_paths(project_dir: Path) -> list[str]:
+	"""Collect workspace and conventional generated paths that exist."""
 	return sorted(
 		set(
 			generated_paths_from_workspace(project_dir)
@@ -181,12 +192,14 @@ def generic_generated_paths(project_dir: Path) -> list[str]:
 
 
 def generic_source_changed(path: str) -> bool:
+	"""Return whether a changed path is outside conventional generated paths."""
 	return not any(
 		is_path_match(path, generated) for generated in COMMON_GENERATED_PATHS
 	)
 
 
 def guard(project_dir: Path, config_path: Path | None = None) -> dict[str, Any]:
+	"""Detect generated output changes that lack matching source changes."""
 	changed = changed_paths(project_dir)
 	findings: list[Finding] = []
 	rule_generated = []
@@ -251,6 +264,7 @@ def guard(project_dir: Path, config_path: Path | None = None) -> dict[str, Any]:
 
 
 def render_markdown(result: dict[str, Any]) -> str:
+	"""Render generated-file guard findings as Markdown."""
 	lines = ["# Generated file guard", ""]
 
 	if result["ok"]:
@@ -270,6 +284,7 @@ def render_markdown(result: dict[str, Any]) -> str:
 
 
 def main() -> None:
+	"""Run the generated-file guard CLI and report invalid input or findings."""
 	parser = argparse.ArgumentParser(
 		description="Detect generated-file edits and stale generated output."
 	)

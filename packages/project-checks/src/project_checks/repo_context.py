@@ -53,6 +53,7 @@ STATUS_GROUPS = {
 
 
 def workspace_path(project_dir: Path) -> Path:
+	"""Return the preferred workspace guidance path for a project."""
 	path = project_dir / "WORKSPACE.md"
 	if path.exists():
 		return path
@@ -60,6 +61,7 @@ def workspace_path(project_dir: Path) -> Path:
 
 
 def read_workspace(project_dir: Path) -> str:
+	"""Read workspace guidance, or return an empty string when unavailable."""
 	path = workspace_path(project_dir)
 	if not path.exists():
 		return ""
@@ -68,6 +70,7 @@ def read_workspace(project_dir: Path) -> str:
 
 
 def section_lines(body: str, heading: str) -> list[str]:
+	"""Return the lines under a Markdown level-two heading."""
 	lines = body.splitlines()
 	start = None
 
@@ -89,6 +92,7 @@ def section_lines(body: str, heading: str) -> list[str]:
 
 
 def bullet_value(line: str) -> tuple[str, str] | None:
+	"""Parse a labelled Markdown bullet into its label and value."""
 	if not line.startswith("- ") or ": " not in line:
 		return None
 
@@ -97,6 +101,7 @@ def bullet_value(line: str) -> tuple[str, str] | None:
 
 
 def summary_from_workspace(body: str) -> dict[str, str]:
+	"""Extract repository summary fields from workspace guidance."""
 	summary = {}
 
 	for heading in ["## Repo summary", "## Important paths"]:
@@ -114,6 +119,7 @@ def summary_from_workspace(body: str) -> dict[str, str]:
 
 
 def generated_paths_from_workspace(body: str) -> list[str]:
+	"""Extract generated-output paths from workspace guidance."""
 	paths = []
 
 	for line in section_lines(body, "## Generated or build output"):
@@ -124,6 +130,7 @@ def generated_paths_from_workspace(body: str) -> list[str]:
 
 
 def generators_from_workspace(body: str) -> list[dict[str, str]]:
+	"""Extract generator definitions from workspace guidance."""
 	generators = []
 
 	for line in section_lines(body, "## Generators"):
@@ -150,6 +157,7 @@ def generators_from_workspace(body: str) -> list[dict[str, str]]:
 
 
 def detect_package_manager(project_dir: Path) -> str:
+	"""Infer the package manager from project lockfiles and metadata."""
 	for filename, manager in PACKAGE_MANAGERS:
 		if (project_dir / filename).exists():
 			return f"{manager} (inferred from `{filename}`)"
@@ -161,6 +169,7 @@ def detect_package_manager(project_dir: Path) -> str:
 
 
 def inferred_summary(project_dir: Path) -> dict[str, str]:
+	"""Build a repository summary from project structure without workspace guidance."""
 	progress_files = [
 		name
 		for name in ["PROGRESS.md", ".claude/PROGRESS.md", ".agents/PROGRESS.md"]
@@ -189,10 +198,12 @@ def inferred_summary(project_dir: Path) -> dict[str, str]:
 
 
 def inferred_generated_paths(project_dir: Path) -> list[str]:
+	"""Return conventional generated paths that exist in a project."""
 	return [name for name in GENERATED_PATH_NAMES if (project_dir / name).exists()]
 
 
 def inferred_generators(project_dir: Path) -> list[dict[str, str]]:
+	"""Infer generator metadata from a project."""
 	if not (project_dir / ".boilersuit").exists():
 		return []
 
@@ -200,6 +211,7 @@ def inferred_generators(project_dir: Path) -> list[dict[str, str]]:
 
 
 def diagnostics_entry(project_dir: Path) -> str:
+	"""Return the project diagnostics command when available."""
 	path = project_dir / ".agent" / "scripts" / "project-diagnostics.py"
 	if path.exists():
 		return ".agent/scripts/project-diagnostics.py --list"
@@ -208,6 +220,7 @@ def diagnostics_entry(project_dir: Path) -> str:
 
 
 def git_output(project_dir: Path) -> list[str]:
+	"""Return Git branch and status lines for a project."""
 	completed = subprocess.run(
 		["git", "status", "--porcelain=v1", "--branch"],
 		cwd=project_dir,
@@ -224,6 +237,7 @@ def git_output(project_dir: Path) -> list[str]:
 
 
 def parse_branch(line: str) -> dict[str, Any]:
+	"""Parse a Git branch status line into branch tracking details."""
 	value = line.removeprefix("## ")
 	result: dict[str, Any] = {
 		"ahead": 0,
@@ -250,6 +264,7 @@ def parse_branch(line: str) -> dict[str, Any]:
 
 
 def parse_git_state(project_dir: Path) -> dict[str, Any]:
+	"""Build a compact Git state summary for a project."""
 	lines = git_output(project_dir)
 	if not lines:
 		return {
@@ -283,6 +298,7 @@ def parse_git_state(project_dir: Path) -> dict[str, Any]:
 
 
 def build_context(project_dir: Path) -> dict[str, Any]:
+	"""Build the compact repository context report."""
 	body = read_workspace(project_dir)
 	has_workspace = bool(body)
 	path = workspace_path(project_dir)
@@ -328,10 +344,12 @@ def _drift_score(repo_dir: Path) -> str:
 
 
 def format_count(label: str, count: int) -> str:
+	"""Format a count with its label."""
 	return f"{count} {label}"
 
 
 def render_markdown(context: dict[str, Any]) -> str:
+	"""Render repository context as Markdown."""
 	summary = context["summary"]
 	git = context["git"]
 	changed = git["changed"]
@@ -386,6 +404,7 @@ def render_markdown(context: dict[str, Any]) -> str:
 
 
 def main() -> None:
+	"""Run the repository context CLI."""
 	parser = argparse.ArgumentParser(
 		description="Print compact repo context for agent session startup."
 	)

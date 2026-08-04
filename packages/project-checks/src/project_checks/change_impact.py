@@ -98,6 +98,7 @@ class RiskSignal:
 
 
 def command_output(command: list[str], project_dir: Path) -> tuple[int, str]:
+	"""Run a command in the project and return its exit code and standard output."""
 	completed = subprocess.run(
 		command,
 		cwd=project_dir,
@@ -111,6 +112,7 @@ def command_output(command: list[str], project_dir: Path) -> tuple[int, str]:
 
 
 def git_status(project_dir: Path) -> list[str]:
+	"""Return the project's Git status lines, or an empty list when Git fails."""
 	exit_code, output = command_output(["git", "status", "--porcelain=v1"], project_dir)
 	if exit_code != 0:
 		return []
@@ -119,6 +121,7 @@ def git_status(project_dir: Path) -> list[str]:
 
 
 def changed_paths(project_dir: Path) -> list[ChangedPath]:
+	"""Parse changed Git paths and classify them by impact category."""
 	changed = []
 
 	for line in git_status(project_dir):
@@ -134,6 +137,7 @@ def changed_paths(project_dir: Path) -> list[ChangedPath]:
 
 
 def is_path_match(path: str, pattern: str) -> bool:
+	"""Return whether a path matches a file or directory pattern."""
 	if pattern.endswith("/"):
 		return path.startswith(pattern)
 
@@ -141,6 +145,7 @@ def is_path_match(path: str, pattern: str) -> bool:
 
 
 def classify_path(path: str) -> str:
+	"""Classify a changed path by its repository role."""
 	path_object = Path(path)
 	name = path_object.name
 	suffix = path_object.suffix
@@ -175,6 +180,7 @@ def classify_path(path: str) -> str:
 
 
 def group_changed(changed: list[ChangedPath]) -> dict[str, list[str]]:
+	"""Group changed paths by their impact category."""
 	grouped = {category: [] for category in CATEGORY_ORDER}
 
 	for item in changed:
@@ -184,6 +190,7 @@ def group_changed(changed: list[ChangedPath]) -> dict[str, list[str]]:
 
 
 def script_candidates(project_dir: Path, script_name: str) -> list[Path]:
+	"""Return candidate paths for a named project script."""
 	return [
 		Path(__file__).resolve().with_name(script_name),
 		project_dir / ".agent" / "scripts" / script_name,
@@ -192,6 +199,7 @@ def script_candidates(project_dir: Path, script_name: str) -> list[Path]:
 
 
 def existing_script(project_dir: Path, script_name: str) -> Path | None:
+	"""Return the first existing candidate path for a named project script."""
 	for path in script_candidates(project_dir, script_name):
 		if path.exists():
 			return path
@@ -200,6 +208,7 @@ def existing_script(project_dir: Path, script_name: str) -> Path | None:
 
 
 def generated_guard(project_dir: Path) -> dict[str, Any]:
+	"""Run the generated-file guard and return an unavailable result when it cannot load."""
 	try:
 		from project_checks.generated_file_guard import guard
 	except ModuleNotFoundError as error:
@@ -227,6 +236,7 @@ def generated_guard(project_dir: Path) -> dict[str, Any]:
 
 
 def diagnostics(project_dir: Path) -> dict[str, Any]:
+	"""Load the project's available diagnostics checks from its local script."""
 	script = existing_script(project_dir, "project-diagnostics.py")
 	if not script:
 		return {"available": False, "checks": []}
@@ -249,6 +259,7 @@ def diagnostics(project_dir: Path) -> dict[str, Any]:
 def risk_signals(
 	grouped: dict[str, list[str]], guard_result: dict[str, Any]
 ) -> list[RiskSignal]:
+	"""Build risk signals from changed-path groups and generated-file findings."""
 	signals = []
 
 	for finding in guard_result.get("findings", []):
@@ -297,6 +308,7 @@ def risk_signals(
 def verification_gaps(
 	grouped: dict[str, list[str]], guard_result: dict[str, Any]
 ) -> list[str]:
+	"""Identify verification gaps implied by changed paths and guard findings."""
 	gaps = []
 	substantive_categories = {"config", "scripts", "skills", "source", "templates"}
 
@@ -319,6 +331,7 @@ def verification_gaps(
 def suggested_checks(
 	project_dir: Path, diagnostics_result: dict[str, Any], guard_result: dict[str, Any]
 ) -> list[str]:
+	"""Collect locally available checks relevant to the changed project."""
 	checks = []
 
 	if guard_result.get("available"):
@@ -336,6 +349,7 @@ def suggested_checks(
 
 
 def build_report(project_dir: Path) -> dict[str, Any]:
+	"""Build the complete change-impact report for a project."""
 	changed = changed_paths(project_dir)
 	grouped = group_changed(changed)
 	guard_result = generated_guard(project_dir)
@@ -358,6 +372,7 @@ def build_report(project_dir: Path) -> dict[str, Any]:
 
 
 def render_paths(paths: list[str], limit: int = 4) -> str:
+	"""Render changed paths compactly for a Markdown report."""
 	if len(paths) <= limit:
 		return ", ".join(f"`{path}`" for path in paths)
 
@@ -366,6 +381,7 @@ def render_paths(paths: list[str], limit: int = 4) -> str:
 
 
 def render_markdown(report: dict[str, Any]) -> str:
+	"""Render a change-impact report as Markdown."""
 	lines = [
 		"# Change impact",
 		"",
@@ -413,6 +429,7 @@ def render_markdown(report: dict[str, Any]) -> str:
 
 
 def main() -> None:
+	"""Run the change-impact CLI and fail when high-severity risk is found."""
 	parser = argparse.ArgumentParser(
 		description="Summarise local change impact from Git status."
 	)

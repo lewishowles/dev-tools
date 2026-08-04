@@ -73,16 +73,16 @@ def collect_files(
 
 
 def strip_fences(text: str) -> str:
+	"""Remove fenced code blocks before scanning Markdown claims."""
 	return RE_CODE_FENCE.sub("", text)
 
 
-# Returns (claim_text, resolved_path) pairs for relative markdown links.
-#
 # @param  {str}   text
 #     Markdown source with fences already stripped.
 # @param  {Path}  source_file
 #     Absolute path of the file being scanned; used to resolve relative targets.
 def extract_link_claims(text: str, source_file: Path) -> list[tuple[str, Path]]:
+	"""Extract relative Markdown link claims and their resolved paths."""
 	claims = []
 	for m in RE_MD_LINK.finditer(text):
 		target = m.group(1).strip()
@@ -94,7 +94,6 @@ def extract_link_claims(text: str, source_file: Path) -> list[tuple[str, Path]]:
 	return claims
 
 
-# Returns (claim_text, resolved_path) pairs for inline code matching prefixes.
 # Paths are resolved from the repo root. Trailing arguments are stripped so
 # `scripts/foo.sh --flag` resolves to scripts/foo.sh.
 #
@@ -109,6 +108,7 @@ def extract_code_claims(
 	project_dir: Path,
 	prefixes: tuple[str, ...],
 ) -> list[tuple[str, Path]]:
+	"""Extract configured inline-code path claims and their resolved paths."""
 	claims = []
 	for m in RE_INLINE_CODE.finditer(text):
 		code = m.group(1).strip()
@@ -164,13 +164,12 @@ def load_ignore_dirs(config_path: Path) -> frozenset[str]:
 	return MARKDOWN_SCAN_IGNORE_DIRS | frozenset(extra_ignore_dirs)
 
 
-# Checks relative path claims in agent instruction files.
-# Returns one Issue per missing path.
 def check_paths(
 	project_dir: Path,
 	prefixes: tuple[str, ...] = DEFAULT_REPO_PATH_PREFIXES,
 	ignore_dirs: frozenset[str] = MARKDOWN_SCAN_IGNORE_DIRS,
 ) -> list[Issue]:
+	"""Find missing relative path claims in project Markdown files."""
 	project_dir = project_dir.resolve()
 	files = collect_files(project_dir, ignore_dirs)
 	issues = []
@@ -189,12 +188,11 @@ def check_paths(
 	return issues
 
 
-# Checks that scripts/ references in markdown exist and are executable.
-# Returns one Issue per missing or non-executable script.
 def check_commands(
 	project_dir: Path,
 	ignore_dirs: frozenset[str] = MARKDOWN_SCAN_IGNORE_DIRS,
 ) -> list[Issue]:
+	"""Find missing or non-executable script claims in project Markdown files."""
 	project_dir = project_dir.resolve()
 	files = collect_files(project_dir, ignore_dirs)
 	issues = []
@@ -227,6 +225,7 @@ def _print_issues(issues: list[Issue]) -> None:
 
 
 def main(arguments: list[str] | None = None) -> None:
+	"""Run the Markdown claims checker and fail when issues are found."""
 	parser = argparse.ArgumentParser()
 	parser.add_argument(
 		"--project-dir",
