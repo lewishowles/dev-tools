@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from pathlib import Path
+import subprocess
 
 import pytest
 
@@ -16,6 +17,58 @@ from image_for_agent.harness import (
 	plan_variant,
 	run_benchmark,
 )
+
+
+class FakeSipsRunner:
+	"""Provide the sips calls needed by harness tests on every platform."""
+
+	source_dimensions = (2048, 1536)
+
+	def __init__(self) -> None:
+		self.dimensions: dict[Path, tuple[int, int]] = {}
+
+	def __call__(
+		self,
+		command: list[str],
+		**_: object,
+	) -> subprocess.CompletedProcess[str]:
+		if command[1:5] == ["-g", "pixelHeight", "-g", "pixelWidth"]:
+			return self._read_dimensions(Path(command[-1]))
+
+		if "--out" in command:
+			return self._render(command)
+
+		raise AssertionError(f"unexpected sips command: {command}")
+
+	def _read_dimensions(self, path: Path) -> subprocess.CompletedProcess[str]:
+		width, height = self.dimensions.get(path, self.source_dimensions)
+		return subprocess.CompletedProcess(
+			args=["sips"],
+			returncode=0,
+			stdout=f"pixelHeight: {height}\npixelWidth: {width}\n",
+			stderr="",
+		)
+
+	def _render(self, command: list[str]) -> subprocess.CompletedProcess[str]:
+		output_path = Path(command[command.index("--out") + 1])
+		if "--cropToHeightWidth" in command:
+			height = int(command[command.index("--cropToHeightWidth") + 1])
+			width = int(command[command.index("--cropToHeightWidth") + 2])
+		elif "--resampleHeightWidth" in command:
+			height = int(command[command.index("--resampleHeightWidth") + 1])
+			width = int(command[command.index("--resampleHeightWidth") + 2])
+		else:
+			raise AssertionError(f"unexpected sips render command: {command}")
+
+		# 4400 bytes, comfortably over the >3000 threshold asserted in test_retina_target_uses_source_scale.
+		output_path.write_bytes(b"test-output" * 400)
+		self.dimensions[output_path] = (width, height)
+		return subprocess.CompletedProcess(
+			args=command,
+			returncode=0,
+			stdout="",
+			stderr="",
+		)
 
 
 def test_estimate_patches_uses_fixed_vendor_estimates() -> None:
@@ -97,6 +150,7 @@ def test_crop_and_resize_compose_in_source_pixel_space(tmp_path: Path) -> None:
 		package_root / "benchmark/fixtures/synthetic-ui.png",
 		manifest,
 		tmp_path,
+		runner=FakeSipsRunner(),
 	)
 
 	text_crop = next(
@@ -127,6 +181,7 @@ def test_retina_target_uses_source_scale(tmp_path: Path) -> None:
 			package_root / "benchmark/fixtures/synthetic-ui.png",
 			manifest,
 			tmp_path / "out-of-bounds",
+			runner=FakeSipsRunner(),
 		)
 
 	manifest["variants"][0]["crop"] = {
@@ -139,6 +194,7 @@ def test_retina_target_uses_source_scale(tmp_path: Path) -> None:
 		package_root / "benchmark/fixtures/synthetic-ui.png",
 		manifest,
 		tmp_path / "in-bounds",
+		runner=FakeSipsRunner(),
 	)
 
 	assert (
