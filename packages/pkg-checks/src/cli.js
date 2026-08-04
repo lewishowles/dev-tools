@@ -7,7 +7,7 @@ import { readSizeConfig, runSizeCheck } from "./checks/size.js";
 import { runTestCoverageCheck } from "./checks/test-coverage.js";
 import { runTypeDeclarationsCheck } from "./checks/type-declarations.js";
 
-// Usage text shared by help and argument errors.
+// Keep help and argument errors on one usage source to prevent their instructions drifting.
 const usage = [
 	"Usage: pkg-checks <command> <package-path>",
 	"",
@@ -30,17 +30,17 @@ const usage = [
 	"  pkg-checks test-coverage ~/Dev/Repositories/Packages/helpers",
 ].join("\n");
 
-// Guidance shown when runtime dependencies violate the configured policy.
+// Keep the remediation with the policy failure so callers know how to resolve it.
 const RUNTIME_DEPENDENCY_HINT =
 	"Move runtime dependencies to devDependencies, or document the exception in ALLOWED_DEPS.";
 
-// Guidance shown when exports are missing type declarations.
+// Keep the remediation with the type check so missing declarations fail with a next step.
 const TYPE_DECLARATIONS_HINT = "Add the missing declarations to the types file before committing.";
 
-// Guidance shown when exports are missing test files.
+// Keep the remediation with the coverage check so missing tests fail with a next step.
 const TEST_COVERAGE_HINT = "Add a test file for each helper before pushing.";
 
-// Human-readable labels for exports check modes.
+// Keep mode labels in one map so each export result uses the same wording.
 const exportModeLabels = {
 	"barrel-coverage": "Barrel coverage",
 	"exports-map": "Exports map",
@@ -53,13 +53,13 @@ const exportModeLabels = {
  *     Check result to report.
  * @param  {object}  options
  *     CLI styling options.
- * @param  {object}  labels
- *     Report labels.
- * @param  {string}  labels.failed
+ * @param  {object}  resultLabels
+ *     Labels and optional guidance for the rendered result.
+ * @param  {string}  resultLabels.failed
  *     Label shown when the check fails.
- * @param  {string}  labels.success
+ * @param  {string}  resultLabels.success
  *     Label shown when the check passes.
- * @param  {string}  [labels.hintText]
+ * @param  {string}  [resultLabels.hintText]
  *     Optional guidance shown below failure rows.
  * @returns  {void}
  *     Nothing.
@@ -81,7 +81,7 @@ function reportCheckResult(result, options, { failed, success, hintText }) {
 		return;
 	}
 
-	console.log(status("success", "", { ...options, label: success }));
+	process.stdout.write(`${status("success", "", { ...options, label: success })}\n`);
 }
 
 /**
@@ -119,7 +119,7 @@ function getConfigPath(packagePath, argumentsList) {
 	return resolve(configPath ?? join(packagePath, "quality.config.json"));
 }
 
-// Supported commands, keyed by name, each running a check and reporting its result.
+// Keep command requirements and handlers together so dispatch cannot drift from validation/reporting.
 const commands = {
 	exports: {
 		needsConfig: true,
@@ -233,7 +233,7 @@ export async function runCli(argumentsList) {
 		argumentsList.includes("--help") ||
 		argumentsList.includes("-h")
 	) {
-		console.log(usage);
+		process.stdout.write(`${usage}\n`);
 
 		return 0;
 	}
