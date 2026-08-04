@@ -14,6 +14,8 @@ import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from project_checks import style
+
 DEFAULT_PROJECT_DIR = Path.cwd()
 # Configuration and directory names that apply to every project scanned.
 DEFAULT_CONFIG_FILENAME = "markdown-claims.config.json"
@@ -217,11 +219,17 @@ def check_commands(
 def _print_issues(issues: list[Issue]) -> None:
 	for issue in issues:
 		if issue.kind == "missing_path":
-			print(f"  {issue.file}: missing path '{issue.claim}'")
+			print(style.row(issue.file, f"missing path '{issue.claim}'", "failed"))
 		elif issue.kind == "missing_script":
-			print(f"  {issue.file}: missing script '{issue.claim}'")
+			print(style.row(issue.file, f"missing script '{issue.claim}'", "failed"))
 		elif issue.kind == "not_executable":
-			print(f"  {issue.file}: script not executable '{issue.claim}'")
+			print(
+				style.row(
+					issue.file,
+					f"script not executable '{issue.claim}'",
+					"failed",
+				)
+			)
 
 
 def main(arguments: list[str] | None = None) -> None:
@@ -277,7 +285,8 @@ def main(arguments: list[str] | None = None) -> None:
 	else:
 		_print_issues(issues)
 		if issues:
-			print(f"\n  {len(issues)} issue(s) found")
+			print()
+			print(style.status("failed", detail=f"{len(issues)} issue(s) found"))
 
 	if issues:
 		sys.exit(1)

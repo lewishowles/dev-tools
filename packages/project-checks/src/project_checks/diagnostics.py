@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from project_checks import style
+
 
 DESCRIPTION = """Run conservative project diagnostics.
 
@@ -1137,11 +1139,18 @@ def main() -> int:
 	args = parser.parse_args()
 
 	if args.all and args.check:
-		print("Use either --all or --check, not both.", file=sys.stderr)
+		print(
+			style.status("failed", "Error", "Use either --all or --check, not both."),
+			file=sys.stderr,
+		)
 		return 2
 	if args.test_match and (args.test_file or args.test_glob):
 		print(
-			"Use --test-match on its own, not with --test-file or --test-glob.",
+			style.status(
+				"failed",
+				"Error",
+				"Use --test-match on its own, not with --test-file or --test-glob.",
+			),
 			file=sys.stderr,
 		)
 		return 2
@@ -1149,14 +1158,23 @@ def main() -> int:
 		args.all or args.list or not args.check
 	):
 		print(
-			"Test targets require one --check and cannot be used with --list or --all.",
+			style.status(
+				"failed",
+				"Error",
+				"Test targets require one --check and cannot be used with --list or --all.",
+			),
 			file=sys.stderr,
 		)
 		return 2
 
 	project_dir = args.project.resolve()
 	if not project_dir.is_dir():
-		print(f"Project directory not found: {project_dir}", file=sys.stderr)
+		print(
+			style.status(
+				"failed", "Error", f"Project directory not found: {project_dir}"
+			),
+			file=sys.stderr,
+		)
 		return 2
 
 	checks, skipped = discover_checks(project_dir)
@@ -1180,8 +1198,11 @@ def main() -> int:
 		)
 	if selection_errors:
 		for error in selection_errors:
-			print(error, file=sys.stderr)
-		print("Run with --list to see available checks.", file=sys.stderr)
+			print(style.status("failed", "Error", error), file=sys.stderr)
+		print(
+			style.hint("Run with --list to see available checks."),
+			file=sys.stderr,
+		)
 		return 2
 
 	if args.test_match:
@@ -1204,7 +1225,7 @@ def main() -> int:
 	target_errors.extend(applicability_errors)
 	if target_errors:
 		for error in target_errors:
-			print(error, file=sys.stderr)
+			print(style.status("failed", "Error", error), file=sys.stderr)
 		return 2
 
 	log_dir = project_dir / ".agent" / "diagnostics"

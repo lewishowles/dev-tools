@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from project_checks import style
+
 DEFAULT_PROJECT_DIR = Path.cwd()
 DEFAULT_CONFIG_FILENAME = "generated-file-guard.config.json"
 
@@ -309,7 +311,12 @@ def main() -> None:
 
 	project_dir = args.project_dir.resolve()
 	if not project_dir.is_dir():
-		print(f"Project directory not found: {project_dir}", file=sys.stderr)
+		print(
+			style.status(
+				"failed", "Error", f"Project directory not found: {project_dir}"
+			),
+			file=sys.stderr,
+		)
 		sys.exit(2)
 
 	config_path = args.config or project_dir / DEFAULT_CONFIG_FILENAME
@@ -317,7 +324,7 @@ def main() -> None:
 	try:
 		result = guard(project_dir, config_path)
 	except ValueError as error:
-		print(str(error), file=sys.stderr)
+		print(style.status("failed", "Error", str(error)), file=sys.stderr)
 		sys.exit(2)
 
 	if args.json:

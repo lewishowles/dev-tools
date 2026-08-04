@@ -2,7 +2,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from project_checks import diagnostics
 from project_checks.diagnostics import detect_python_checks, has_pytest_test_files
 
@@ -193,10 +192,18 @@ def test_main_rejects_fuzzy_matching_with_another_target_option(
 		],
 	)
 
+	real_which = diagnostics.shutil.which
+
+	monkeypatch.setattr(
+		diagnostics.shutil,
+		"which",
+		lambda name: None if name == "cli-style" else real_which(name),
+	)
+
 	result = diagnostics.main()
 	captured = capsys.readouterr()
 
 	assert result == 2
 	assert captured.err == (
-		"Use --test-match on its own, not with --test-file or --test-glob.\n"
+		"x Error Use --test-match on its own, not with --test-file or --test-glob.\n"
 	)

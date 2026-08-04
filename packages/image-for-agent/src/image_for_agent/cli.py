@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import sys
 
+from image_for_agent import style
 from image_for_agent.harness import (
 	HarnessError,
 	load_manifest,
@@ -65,7 +66,7 @@ def main(argv: list[str] | None = None) -> int:
 		)
 		write_result(result_path, result)
 	except HarnessError as error:
-		print(f"error: {error}", file=sys.stderr)
+		print(style.status("failed", "Error", str(error)), file=sys.stderr)
 		return 2
 
 	print(
