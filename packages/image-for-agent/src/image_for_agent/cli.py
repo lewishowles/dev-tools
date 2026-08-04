@@ -46,7 +46,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-	"""Generate the requested variants and write a JSON-first summary."""
+	"""Generate requested variants, write their JSON summary, and report harness failures.
+
+	Args:
+		argv: Optional command-line arguments, excluding the executable name. Defaults to the process arguments.
+
+	Returns:
+		0 when variants and the summary are written successfully, or 2 when a harness error is reported.
+	"""
 	args = build_parser().parse_args(argv)
 	result_path = args.result or args.output_dir / "results.json"
 
