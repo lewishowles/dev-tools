@@ -100,7 +100,9 @@ def test_crop_and_resize_compose_in_source_pixel_space(tmp_path: Path) -> None:
 	)
 
 	text_crop = next(
-		variant for variant in result["variants"] if variant["named_variant"] == "text-crop-512"
+		variant
+		for variant in result["variants"]
+		if variant["named_variant"] == "text-crop-512"
 	)
 
 	assert (text_crop["result_width"], text_crop["result_height"]) == (512, 384)
@@ -139,7 +141,10 @@ def test_retina_target_uses_source_scale(tmp_path: Path) -> None:
 		tmp_path / "in-bounds",
 	)
 
-	assert (result["variants"][0]["result_width"], result["variants"][0]["result_height"]) == (
+	assert (
+		result["variants"][0]["result_width"],
+		result["variants"][0]["result_height"],
+	) == (
 		512,
 		384,
 	)
@@ -200,7 +205,9 @@ def test_manifest_rejects_non_positive_crop() -> None:
 		_validate_manifest(manifest, package_root / "benchmark/manifest.json")
 
 
-def test_cli_reports_input_errors(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_cli_reports_input_errors(
+	tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
 	package_root = Path(__file__).parents[1]
 
 	exit_code = main(

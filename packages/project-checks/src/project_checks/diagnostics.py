@@ -633,29 +633,32 @@ def resolve_fuzzy_test_targets(
 	for pattern in patterns:
 		matches: list[str] = []
 		for root, dirs, files in os.walk(project_dir):
-			dirs[:] = [
-				name for name in dirs if name not in PYTHON_EXCLUDED_DIRS
-			]
+			dirs[:] = [name for name in dirs if name not in PYTHON_EXCLUDED_DIRS]
 			for filename in files:
 				relative_path = (Path(root) / filename).relative_to(project_dir)
 				path_matches_style = (
-					check.test_target_style == TEST_TARGET_STYLE_PLAYWRIGHT
-					and filename.endswith((".pw.ts", ".pw.js"))
-				) or (
-					check.test_target_style == TEST_TARGET_STYLE_XCODE
-					and filename.endswith(".swift")
-					and any(
-						part.endswith("Tests")
-						for part in relative_path.parent.parts
+					(
+						check.test_target_style == TEST_TARGET_STYLE_PLAYWRIGHT
+						and filename.endswith((".pw.ts", ".pw.js"))
 					)
-				) or (
-					check.test_target_style == TEST_TARGET_STYLE_PATHS
-					and (
-						filename.endswith(
-							(".test.ts", ".test.tsx", ".test.js", ".test.jsx")
+					or (
+						check.test_target_style == TEST_TARGET_STYLE_XCODE
+						and filename.endswith(".swift")
+						and any(
+							part.endswith("Tests")
+							for part in relative_path.parent.parts
 						)
-						or filename.startswith("test_") and filename.endswith(".py")
-						or filename.endswith("_test.py")
+					)
+					or (
+						check.test_target_style == TEST_TARGET_STYLE_PATHS
+						and (
+							filename.endswith(
+								(".test.ts", ".test.tsx", ".test.js", ".test.jsx")
+							)
+							or filename.startswith("test_")
+							and filename.endswith(".py")
+							or filename.endswith("_test.py")
+						)
 					)
 				)
 				if path_matches_style and pattern.lower() in str(relative_path).lower():

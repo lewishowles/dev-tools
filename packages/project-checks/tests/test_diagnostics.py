@@ -19,7 +19,9 @@ def test_has_pytest_test_files_detects_test_suffixed_file(tmp_path: Path) -> Non
 	assert has_pytest_test_files(tmp_path) is True
 
 
-def test_has_pytest_test_files_ignores_non_matching_python_files(tmp_path: Path) -> None:
+def test_has_pytest_test_files_ignores_non_matching_python_files(
+	tmp_path: Path,
+) -> None:
 	(tmp_path / "example.py").write_text("", encoding="utf-8")
 
 	assert has_pytest_test_files(tmp_path) is False
