@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+# Run repository quality checks before each commit.
+
+set -e
+
+uv run ruff format --check
+uv run ruff check
+bun run lint

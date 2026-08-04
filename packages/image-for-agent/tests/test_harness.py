@@ -42,6 +42,7 @@ class FakeSipsRunner:
 
 	def _read_dimensions(self, path: Path) -> subprocess.CompletedProcess[str]:
 		width, height = self.dimensions.get(path, self.source_dimensions)
+
 		return subprocess.CompletedProcess(
 			args=["sips"],
 			returncode=0,
@@ -51,6 +52,7 @@ class FakeSipsRunner:
 
 	def _render(self, command: list[str]) -> subprocess.CompletedProcess[str]:
 		output_path = Path(command[command.index("--out") + 1])
+
 		if "--cropToHeightWidth" in command:
 			height = int(command[command.index("--cropToHeightWidth") + 1])
 			width = int(command[command.index("--cropToHeightWidth") + 2])
