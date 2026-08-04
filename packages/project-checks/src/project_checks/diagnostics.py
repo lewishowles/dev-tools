@@ -29,6 +29,8 @@ EPILOG = """Commands:
   --check NAME        Run one named check, such as test:unit or lint.
   --test-file PATH    Run a targetable test check against one file. Repeat for multiple files.
   --test-glob PATTERN Run a targetable test check against matching files. Repeat for multiple globs.
+  --test-match PATTERN
+                      Run a targetable test check against files whose paths contain a pattern.
   --all               Run conservative checks that do not require explicit targets.
   --json              Return machine-readable output for the selected mode.
 
@@ -41,6 +43,7 @@ Examples:
   project-checks --check test:unit --test-file src/example.test.ts
   project-checks --check test:unit --test-glob 'src/**/*.test.ts'
   project-checks --check test:component --test-file src/example.pw.ts
+  project-checks --check test:component --test-match data-table
   project-checks --check build:cli
   project-checks --check lint --check test:unit
   project-checks --all
@@ -618,6 +621,54 @@ def resolve_test_targets(
 	return sorted(targets), errors
 
 
+def resolve_fuzzy_test_targets(
+	project_dir: Path, check: Check, patterns: list[str]
+) -> tuple[list[str], list[str]]:
+	targets: set[str] = set()
+	errors: list[str] = []
+
+	if check.test_target_style is None:
+		return [], [f"check does not support test targets: {check.name}"]
+
+	for pattern in patterns:
+		matches: list[str] = []
+		for root, dirs, files in os.walk(project_dir):
+			dirs[:] = [
+				name for name in dirs if name not in PYTHON_EXCLUDED_DIRS
+			]
+			for filename in files:
+				relative_path = (Path(root) / filename).relative_to(project_dir)
+				path_matches_style = (
+					check.test_target_style == TEST_TARGET_STYLE_PLAYWRIGHT
+					and filename.endswith((".pw.ts", ".pw.js"))
+				) or (
+					check.test_target_style == TEST_TARGET_STYLE_XCODE
+					and filename.endswith(".swift")
+					and any(
+						part.endswith("Tests")
+						for part in relative_path.parent.parts
+					)
+				) or (
+					check.test_target_style == TEST_TARGET_STYLE_PATHS
+					and (
+						filename.endswith(
+							(".test.ts", ".test.tsx", ".test.js", ".test.jsx")
+						)
+						or filename.startswith("test_") and filename.endswith(".py")
+						or filename.endswith("_test.py")
+					)
+				)
+				if path_matches_style and pattern.lower() in str(relative_path).lower():
+					matches.append(str(relative_path))
+
+		if not matches:
+			errors.append(f"no test file matched pattern: {pattern}")
+		else:
+			targets.update(matches)
+
+	return sorted(targets), errors
+
+
 def xcode_test_arguments(targets: list[str]) -> tuple[list[str], list[str]]:
 	arguments: list[str] = []
 	errors: list[str] = []
@@ -1039,6 +1090,13 @@ def main() -> int:
 		help="Run a targetable test check against matching project-relative files. Repeat for multiple globs.",
 	)
 	parser.add_argument(
+		"--test-match",
+		action="append",
+		default=[],
+		metavar="PATTERN",
+		help="Run a targetable test check against files whose project-relative paths contain a pattern. Repeat for multiple patterns.",
+	)
+	parser.add_argument(
 		"--all",
 		action="store_true",
 		help="Run conservative checks that do not require explicit targets. Use only after approval for broad verification.",
@@ -1048,7 +1106,15 @@ def main() -> int:
 	if args.all and args.check:
 		print("Use either --all or --check, not both.", file=sys.stderr)
 		return 2
-	if (args.test_file or args.test_glob) and (args.all or args.list or not args.check):
+	if args.test_match and (args.test_file or args.test_glob):
+		print(
+			"Use --test-match on its own, not with --test-file or --test-glob.",
+			file=sys.stderr,
+		)
+		return 2
+	if (args.test_file or args.test_glob or args.test_match) and (
+		args.all or args.list or not args.check
+	):
 		print(
 			"Test targets require one --check and cannot be used with --list or --all.",
 			file=sys.stderr,
@@ -1085,9 +1151,20 @@ def main() -> int:
 		print("Run with --list to see available checks.", file=sys.stderr)
 		return 2
 
-	test_targets, target_errors = resolve_test_targets(
-		project_dir, args.test_file, args.test_glob
-	)
+	if args.test_match:
+		if len(checks_to_run) == 1:
+			test_targets, target_errors = resolve_fuzzy_test_targets(
+				project_dir, checks_to_run[0], args.test_match
+			)
+		else:
+			# Multiple checks selected: skip fuzzy resolution and pass the raw patterns
+			# through as targets so apply_test_targets' own single-check guard below
+			# produces the shared "test targets require exactly one check" error.
+			test_targets, target_errors = args.test_match, []
+	else:
+		test_targets, target_errors = resolve_test_targets(
+			project_dir, args.test_file, args.test_glob
+		)
 	checks_to_run, applicability_errors = apply_test_targets(
 		checks_to_run, test_targets
 	)

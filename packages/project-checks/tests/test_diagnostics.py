@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 import pytest
@@ -86,3 +87,114 @@ def test_detect_python_checks_renames_to_avoid_collision(
 
 	assert len(checks) == 1
 	assert checks[0].name == "test:unit:python"
+
+
+def test_resolve_fuzzy_test_targets_reports_zero_matches(
+	tmp_path: Path,
+) -> None:
+	test_file = tmp_path / "tests" / "other.pw.ts"
+	test_file.parent.mkdir()
+	test_file.write_text("", encoding="utf-8")
+	check = diagnostics.Check(
+		"test:component",
+		["bun", "run", "test:component"],
+		"component tests",
+		test_target_style=diagnostics.TEST_TARGET_STYLE_PLAYWRIGHT,
+	)
+
+	targets, errors = diagnostics.resolve_fuzzy_test_targets(
+		tmp_path, check, ["data-table"]
+	)
+
+	assert targets == []
+	assert errors == ["no test file matched pattern: data-table"]
+
+
+def test_resolve_fuzzy_test_targets_returns_a_matching_file(
+	tmp_path: Path,
+) -> None:
+	test_file = tmp_path / "tests" / "Data-Table.pw.ts"
+	test_file.parent.mkdir()
+	test_file.write_text("", encoding="utf-8")
+	check = diagnostics.Check(
+		"test:component",
+		["bun", "run", "test:component"],
+		"component tests",
+		test_target_style=diagnostics.TEST_TARGET_STYLE_PLAYWRIGHT,
+	)
+
+	targets, errors = diagnostics.resolve_fuzzy_test_targets(
+		tmp_path, check, ["DATA-TABLE"]
+	)
+
+	assert targets == ["tests/Data-Table.pw.ts"]
+	assert errors == []
+
+
+def test_resolve_fuzzy_test_targets_returns_all_matching_files(
+	tmp_path: Path,
+) -> None:
+	first_file = tmp_path / "tests" / "data-table.pw.ts"
+	second_file = tmp_path / "other" / "data-table.pw.js"
+	first_file.parent.mkdir()
+	second_file.parent.mkdir()
+	first_file.write_text("", encoding="utf-8")
+	second_file.write_text("", encoding="utf-8")
+	check = diagnostics.Check(
+		"test:component",
+		["bun", "run", "test:component"],
+		"component tests",
+		test_target_style=diagnostics.TEST_TARGET_STYLE_PLAYWRIGHT,
+	)
+
+	targets, errors = diagnostics.resolve_fuzzy_test_targets(
+		tmp_path, check, ["data-table"]
+	)
+
+	assert targets == ["other/data-table.pw.js", "tests/data-table.pw.ts"]
+	assert errors == []
+
+
+def test_resolve_fuzzy_test_targets_rejects_unsupported_check(
+	tmp_path: Path,
+) -> None:
+	check = diagnostics.Check(
+		"lint",
+		["bun", "run", "lint"],
+		"lint",
+	)
+
+	targets, errors = diagnostics.resolve_fuzzy_test_targets(
+		tmp_path, check, ["data-table"]
+	)
+
+	assert targets == []
+	assert errors == ["check does not support test targets: lint"]
+
+
+def test_main_rejects_fuzzy_matching_with_another_target_option(
+	tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+	monkeypatch.setattr(
+		sys,
+		"argv",
+		[
+			"project-checks",
+			"--project",
+			str(tmp_path),
+			"--check",
+			"test:component",
+			"--test-match",
+			"data-table",
+			"--test-file",
+			"tests/data-table.pw.ts",
+		],
+	)
+
+	result = diagnostics.main()
+	captured = capsys.readouterr()
+
+	assert result == 2
+	assert captured.err == (
+		"Use --test-match on its own, not with --test-file or --test-glob.\n"
+	)
