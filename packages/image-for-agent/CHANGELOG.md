@@ -4,6 +4,8 @@ All notable changes to `image-for-agent` are documented here. The format is base
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-08-07
+
 ### Added
 
 - Added the `image-for-agent` CLI, producing agent-ready image variants (overview, ui, text, coordinates presets) with deterministic crop, resize and format handling, backed by Pillow.

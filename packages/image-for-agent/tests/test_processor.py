@@ -59,7 +59,9 @@ def test_retina_metadata_is_detected_and_missing_metadata_defaults_to_one() -> N
 	assert detect_retina_scale({"dpi": (150, 150)}) == 1.0
 
 
-def test_retina_metadata_scales_ui_without_assuming_missing_metadata(tmp_path: Path) -> None:
+def test_retina_metadata_scales_ui_without_assuming_missing_metadata(
+	tmp_path: Path,
+) -> None:
 	retina_source = tmp_path / "retina.png"
 	plain_source = tmp_path / "plain.png"
 	_write_image(retina_source, size=(800, 600), dpi=(144, 144))
@@ -178,7 +180,9 @@ def test_crop_parser_and_bounds_validation_are_explicit(tmp_path: Path) -> None:
 		)
 
 
-def test_json_report_has_a_stable_shape_and_exact_coordinate_mapping(tmp_path: Path) -> None:
+def test_json_report_has_a_stable_shape_and_exact_coordinate_mapping(
+	tmp_path: Path,
+) -> None:
 	source = tmp_path / "source.png"
 	_write_image(source, size=(400, 200))
 

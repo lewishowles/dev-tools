@@ -304,7 +304,9 @@ def _validate_preset(preset: str) -> None:
 def _validate_retina_scale(retina_scale: float) -> None:
 	"""Reject scales that cannot describe a source image's logical pixels."""
 	if not math.isfinite(retina_scale) or retina_scale < 1:
-		raise ImageForAgentError("retina scale must be a finite number greater than or equal to 1")
+		raise ImageForAgentError(
+			"retina scale must be a finite number greater than or equal to 1"
+		)
 
 
 def _validate_crop_positive(crop: Crop) -> None:
@@ -428,11 +430,7 @@ def _build_warnings(
 			"Overview is reduced to 25% of native dimensions; small text may be illegible."
 		)
 
-	if (
-		has_override
-		and preset in LOSSLESS_PRESETS
-		and effective_scale > detected_scale
-	):
+	if has_override and preset in LOSSLESS_PRESETS and effective_scale > detected_scale:
 		warnings.append(
 			f"Manual retina scale {effective_scale:g} reduces the {preset} image below its "
 			f"detected floor of {detected_scale:g}; inspect text and coordinates before use."
@@ -464,7 +462,9 @@ def _write_output(output_path: Path, encoded: bytes) -> None:
 	except OSError as error:
 		if output_path.is_file():
 			output_path.unlink()
-		raise ImageForAgentError(f"could not write output image: {output_path}") from error
+		raise ImageForAgentError(
+			f"could not write output image: {output_path}"
+		) from error
 
 
 def _round_factor(value: float) -> float:

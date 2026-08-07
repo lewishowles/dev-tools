@@ -122,7 +122,9 @@ def main(argv: list[str] | None = None) -> int:
 				},
 				{
 					"label": "Coordinate scale",
-					"value": json.dumps(report["coordinate_scale_factor"], sort_keys=True),
+					"value": json.dumps(
+						report["coordinate_scale_factor"], sort_keys=True
+					),
 				},
 				{
 					"label": "Patch estimates",
@@ -153,7 +155,9 @@ def _retina_scale_argument(value: str) -> float:
 	try:
 		retina_scale = float(value)
 	except ValueError as error:
-		raise argparse.ArgumentTypeError("retina scale must be a number at least 1") from error
+		raise argparse.ArgumentTypeError(
+			"retina scale must be a number at least 1"
+		) from error
 
 	if retina_scale < 1:
 		raise argparse.ArgumentTypeError("retina scale must be a number at least 1")
