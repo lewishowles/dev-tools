@@ -1,0 +1,39 @@
+name: Publish image-for-agent
+
+on:
+  push:
+    tags:
+      - "image-for-agent-v*"
+
+concurrency:
+  group: publish-image-for-agent-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Test package
+        run: uv run pytest packages/image-for-agent/tests
+
+      - name: Build package
+        working-directory: packages/image-for-agent
+        run: uv build
+
+      - name: Publish to PyPI
+        working-directory: .
+        run: uv publish --trusted-publishing automatic

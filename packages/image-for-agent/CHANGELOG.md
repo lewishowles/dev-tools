@@ -6,4 +6,5 @@ All notable changes to `image-for-agent` are documented here. The format is base
 
 ### Added
 
+- Added the `image-for-agent` CLI, producing agent-ready image variants (overview, ui, text, coordinates presets) with deterministic crop, resize and format handling, backed by Pillow.
 - Added the offline image variant benchmark harness, with deterministic presets, crop and coordinate metadata, byte measurements and estimated model patch counts.

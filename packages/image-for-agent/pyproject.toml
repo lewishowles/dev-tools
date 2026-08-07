@@ -1,11 +1,11 @@
 [project]
 name = "image-for-agent"
 version = "0.1.0"
-description = "Offline image variant benchmark harness for agent input experiments."
+description = "CLI that prepares local images for manual agent input, plus an offline image variant benchmark harness."
 authors = [{ name = "Lewis Howles" }]
 license = { text = "MIT" }
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["Pillow>=10.0"]
 classifiers = [
 	"Development Status :: 3 - Alpha",
 	"Intended Audience :: Developers",
@@ -20,6 +20,7 @@ Homepage = "https://github.com/lewishowles/dev-tools/tree/main/packages/image-fo
 Repository = "https://github.com/lewishowles/dev-tools"
 
 [project.scripts]
+image-for-agent = "image_for_agent.public_cli:main"
 image-for-agent-benchmark = "image_for_agent.cli:main"
 
 [build-system]
