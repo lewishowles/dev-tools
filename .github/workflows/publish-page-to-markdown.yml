@@ -25,7 +25,7 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Install Bun dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
 
       - name: Add Bun binaries to PATH
         run: echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH"
