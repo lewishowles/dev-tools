@@ -26,7 +26,7 @@ This installs five commands on your PATH:
 - `project-checks`: list or run conservative project diagnostics (package scripts such as lint, typecheck, and test)
 - `project-checks-change-impact`: summarise local change impact from Git status
 - `project-checks-generated-file-guard`: detect generated-file edits and stale generated output
-- `project-checks-markdown-claims`: check that paths and commands claimed in Markdown files actually exist
+- `project-checks-markdown-claims`: check that current paths named in Markdown files exist
 - `project-checks-repo-context`: print a compact repo briefing for agent session startup
 
 ## Usage
@@ -41,7 +41,7 @@ project-checks --check lint --check test:unit --project ./my-project
 # The other four commands take --project-dir instead of --project
 project-checks-change-impact --project-dir ./my-project
 project-checks-generated-file-guard --project-dir ./my-project
-project-checks-markdown-claims --project-dir ./my-project --mode all
+project-checks-markdown-claims --project-dir ./my-project --mode paths
 project-checks-repo-context --project-dir ./my-project
 ```
 
@@ -59,6 +59,20 @@ pass another file with `--config`:
 	"extraPathPrefixes": ["guides/"],
 	"extraIgnoreDirs": ["dist", "build"]
 }
+```
+
+Path claims include relative Markdown links and inline code that starts with a
+configured path prefix. A `:line` or `:line:column` suffix is removed before
+resolution. Globs pass when they match at least one current path and fail when
+they match nothing.
+
+Planned destinations and removed historical paths can be marked without
+weakening checks for current paths. The marker applies to every path on the
+same source line:
+
+```markdown
+- `scripts/future-check.sh` <!-- markdown-claims: planned -->
+- `scripts/removed-check.sh` <!-- markdown-claims: historical -->
 ```
 
 ## Other packages in this workspace

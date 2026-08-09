@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 # Check that file paths claimed in agent-facing markdown actually exist on disk.
 #
-# Modes:
-#   paths    — relative markdown links and inline code paths in agent instruction files
-#   commands — inline `scripts/` references across all markdown, verifying executability
+# Paths include relative Markdown links and inline code paths in agent instruction files.
 
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import re
 import sys
@@ -50,14 +49,20 @@ DEFAULT_REPO_PATH_PREFIXES = (
 
 RE_MD_LINK = re.compile(r"\[(?:[^\]]*)\]\(([^)#\s][^)]*)\)")
 RE_INLINE_CODE = re.compile(r"(?<!`)`([^`\n]+)`(?!`)")
-RE_CODE_FENCE = re.compile(r"```.*?```", re.DOTALL)
+RE_CODE_FENCE = re.compile(
+	r"(?P<fence>`{3,})(?P<language>[^\n`]*)\n(?P<body>.*?)(?P=fence)",
+	re.DOTALL,
+)
+RE_CLAIM_MARKER = re.compile(r"<!--\s*markdown-claims:\s*(planned|historical)\s*-->")
+RE_SOURCE_LOCATION = re.compile(r"^(?P<path>.+?):\d+(?::\d+)?$")
+NON_CURRENT_MARKERS = frozenset({"historical", "planned"})
 
 
 @dataclass
 class Issue:
 	file: str  # repo-relative path of the markdown file
 	claim: str  # the path string as written in the source
-	kind: str  # missing_path | missing_script | not_executable
+	kind: str  # missing_path
 
 
 def collect_files(
@@ -79,6 +84,34 @@ def strip_fences(text: str) -> str:
 	return RE_CODE_FENCE.sub("", text)
 
 
+def extract_markers(line: str) -> frozenset[str]:
+	"""Return Markdown claim markers declared on one source line."""
+	return frozenset(RE_CLAIM_MARKER.findall(line))
+
+
+def is_non_current(markers: frozenset[str]) -> bool:
+	"""Return whether a line describes planned or historical repository state."""
+	return bool(markers & NON_CURRENT_MARKERS)
+
+
+def normalise_path_reference(path: str) -> str:
+	"""Remove an optional source line and column suffix from a path."""
+	match = RE_SOURCE_LOCATION.fullmatch(path)
+	if match is None:
+		return path
+
+	return match.group("path")
+
+
+def resolve_claim_matches(path: Path) -> list[Path]:
+	"""Return concrete paths matching a literal path or glob claim."""
+	path_text = str(path)
+	if not glob.has_magic(path_text):
+		return [path] if path.exists() else []
+
+	return sorted(Path(match) for match in glob.glob(path_text, recursive=True))
+
+
 # @param  {str}   text
 #     Markdown source with fences already stripped.
 # @param  {Path}  source_file
@@ -86,13 +119,18 @@ def strip_fences(text: str) -> str:
 def extract_link_claims(text: str, source_file: Path) -> list[tuple[str, Path]]:
 	"""Extract relative Markdown link claims and their resolved paths."""
 	claims = []
-	for m in RE_MD_LINK.finditer(text):
-		target = m.group(1).strip()
-		if target.startswith(("http://", "https://", "#", "mailto:", "/")):
+	for line in text.splitlines():
+		if is_non_current(extract_markers(line)):
 			continue
-		path_target = target.split("#", maxsplit=1)[0]
-		resolved = (source_file.parent / path_target).resolve()
-		claims.append((target, resolved))
+
+		for match in RE_MD_LINK.finditer(line):
+			target = match.group(1).strip()
+			if target.startswith(("http://", "https://", "#", "mailto:", "/")):
+				continue
+			path_target = target.split("#", maxsplit=1)[0]
+			path_target = normalise_path_reference(path_target)
+			resolved = (source_file.parent / path_target).resolve()
+			claims.append((target, resolved))
 	return claims
 
 
@@ -105,22 +143,28 @@ def extract_link_claims(text: str, source_file: Path) -> list[tuple[str, Path]]:
 #     Project directory used to resolve repo-root-relative paths.
 # @param  {tuple[str]} prefixes
 #     Only inline code starting with one of these prefixes is included.
-def extract_code_claims(
+def extract_inline_path_claims(
 	text: str,
 	project_dir: Path,
 	prefixes: tuple[str, ...],
 ) -> list[tuple[str, Path]]:
-	"""Extract configured inline-code path claims and their resolved paths."""
+	"""Extract current inline-code path claims and their resolved paths."""
 	claims = []
-	for m in RE_INLINE_CODE.finditer(text):
-		code = m.group(1).strip()
-		if not code.startswith(prefixes):
+	for line in strip_fences(text).splitlines():
+		markers = extract_markers(line)
+		if is_non_current(markers):
 			continue
-		path_part = code.split()[0].rstrip("/")
-		if "<" in path_part:
-			continue
-		resolved = project_dir / path_part
-		claims.append((path_part, resolved))
+
+		for match in RE_INLINE_CODE.finditer(line):
+			code = match.group(1).strip()
+			if not code.startswith(prefixes):
+				continue
+			claim = code.split()[0].rstrip("/")
+			if "<" in claim:
+				continue
+			path_part = normalise_path_reference(claim)
+			resolved = project_dir / path_part
+			claims.append((claim, resolved))
 	return claims
 
 
@@ -181,55 +225,18 @@ def check_paths(
 		rel = str(md_file.relative_to(project_dir))
 
 		link_claims = extract_link_claims(text, md_file)
-		code_claims = extract_code_claims(text, project_dir, prefixes)
+		code_claims = extract_inline_path_claims(text, project_dir, prefixes)
 
 		for claim, resolved in link_claims + code_claims:
-			if not resolved.exists():
+			if not resolve_claim_matches(resolved):
 				issues.append(Issue(file=rel, claim=claim, kind="missing_path"))
-
-	return issues
-
-
-def check_commands(
-	project_dir: Path,
-	ignore_dirs: frozenset[str] = MARKDOWN_SCAN_IGNORE_DIRS,
-) -> list[Issue]:
-	"""Find missing or non-executable script claims in project Markdown files."""
-	project_dir = project_dir.resolve()
-	files = collect_files(project_dir, ignore_dirs)
-	issues = []
-
-	for md_file in files:
-		text = strip_fences(md_file.read_text(encoding="utf-8"))
-		rel = str(md_file.relative_to(project_dir))
-
-		for claim, resolved in extract_code_claims(
-			text,
-			project_dir,
-			("scripts/",),
-		):
-			if not resolved.exists():
-				issues.append(Issue(file=rel, claim=claim, kind="missing_script"))
-			elif resolved.suffix == ".sh" and not resolved.stat().st_mode & 0o111:
-				issues.append(Issue(file=rel, claim=claim, kind="not_executable"))
 
 	return issues
 
 
 def _print_issues(issues: list[Issue]) -> None:
 	for issue in issues:
-		if issue.kind == "missing_path":
-			print(style.row(issue.file, f"missing path '{issue.claim}'", "failed"))
-		elif issue.kind == "missing_script":
-			print(style.row(issue.file, f"missing script '{issue.claim}'", "failed"))
-		elif issue.kind == "not_executable":
-			print(
-				style.row(
-					issue.file,
-					f"script not executable '{issue.claim}'",
-					"failed",
-				)
-			)
+		print(style.row(issue.file, f"missing path '{issue.claim}'", "failed"))
 
 
 def main(arguments: list[str] | None = None) -> None:
@@ -253,9 +260,9 @@ def main(arguments: list[str] | None = None) -> None:
 	)
 	parser.add_argument(
 		"--mode",
-		choices=["paths", "commands", "all"],
-		default="all",
-		help="Which claims to check (default: all)",
+		choices=["paths"],
+		default="paths",
+		help="Path checks to run (default: paths)",
 	)
 	parser.add_argument(
 		"--json",
@@ -272,13 +279,7 @@ def main(arguments: list[str] | None = None) -> None:
 	except ValueError as error:
 		parser.error(str(error))
 
-	issues: list[Issue] = []
-
-	if args.mode in ("paths", "all"):
-		issues.extend(check_paths(project_dir, path_prefixes, ignore_dirs))
-
-	if args.mode in ("commands", "all"):
-		issues.extend(check_commands(project_dir, ignore_dirs))
+	issues = check_paths(project_dir, path_prefixes, ignore_dirs)
 
 	if args.json:
 		print(json.dumps({"issues": [asdict(i) for i in issues]}, indent=2))

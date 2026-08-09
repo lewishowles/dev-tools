@@ -4,6 +4,12 @@ All notable changes to `project-checks` are documented here. The format is based
 
 ## [Unreleased]
 
+### Fixed
+
+- Checked Markdown path references separately from script commands, with explicit planned and historical markers.
+- Accepted source-location suffixes and matched globs in current path claims.
+- Removed command checks inferred from Markdown examples; missing scripts remain covered as path references.
+
 ## [0.2.4] - 2026-08-04
 
 ### Added

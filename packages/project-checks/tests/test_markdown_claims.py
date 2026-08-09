@@ -7,7 +7,6 @@ from project_checks.markdown_claims import (
 	DEFAULT_REPO_PATH_PREFIXES,
 	Issue,
 	MARKDOWN_SCAN_IGNORE_DIRS,
-	check_commands,
 	check_paths,
 	collect_files,
 	load_ignore_dirs,
@@ -149,7 +148,7 @@ def test_repo_wide_scan_includes_root_markdown_and_ignores_noise_dirs(
 	tmp_path: Path,
 ) -> None:
 	(tmp_path / "README.md").write_text(
-		"Run `scripts/missing.sh`.\n",
+		"See `scripts/missing.py`.\nRun `./scripts/missing.sh`.\n",
 		encoding="utf-8",
 	)
 	ignored_file = tmp_path / "node_modules" / "ignored.md"
@@ -160,13 +159,9 @@ def test_repo_wide_scan_includes_root_markdown_and_ignores_noise_dirs(
 	)
 
 	path_issues = check_paths(tmp_path)
-	command_issues = check_commands(tmp_path)
 
 	assert [(issue.file, issue.claim) for issue in path_issues] == [
-		("README.md", "scripts/missing.sh")
-	]
-	assert [(issue.file, issue.claim) for issue in command_issues] == [
-		("README.md", "scripts/missing.sh")
+		("README.md", "scripts/missing.py"),
 	]
 
 
@@ -318,17 +313,79 @@ def test_relative_link_with_fragment_validates_the_path_before_fragment(
 	assert check_paths(tmp_path) == []
 
 
-def test_command_claims_require_shell_scripts_to_be_executable(tmp_path: Path) -> None:
-	scripts_dir = tmp_path / "scripts"
-	scripts_dir.mkdir()
-	(scripts_dir / "check.py").write_text("print('checked')\n", encoding="utf-8")
-	(scripts_dir / "check.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+@pytest.mark.parametrize(
+	"reference",
+	("scripts/tool.py:150", "scripts/tool.py:150:12"),
+)
+def test_existing_path_with_source_location_uses_path_portion(
+	tmp_path: Path,
+	reference: str,
+) -> None:
+	script = tmp_path / "scripts" / "tool.py"
+	script.parent.mkdir()
+	script.write_text("print('checked')\n", encoding="utf-8")
 	(tmp_path / "README.md").write_text(
-		"Run `scripts/check.py`, `scripts/check.sh`, or `scripts/missing.sh`.\n",
+		f"See `{reference}`.\n",
 		encoding="utf-8",
 	)
 
-	assert check_commands(tmp_path) == [
-		Issue(file="README.md", claim="scripts/check.sh", kind="not_executable"),
-		Issue(file="README.md", claim="scripts/missing.sh", kind="missing_script"),
+	assert check_paths(tmp_path) == []
+
+
+def test_missing_current_path_with_source_location_still_fails(tmp_path: Path) -> None:
+	(tmp_path / "README.md").write_text(
+		"See `scripts/missing.py:150`.\n",
+		encoding="utf-8",
+	)
+
+	assert check_paths(tmp_path) == [
+		Issue(file="README.md", claim="scripts/missing.py:150", kind="missing_path"),
+	]
+
+
+@pytest.mark.parametrize("marker", ("planned", "historical"))
+def test_explicit_non_current_path_marker_is_ignored(
+	tmp_path: Path,
+	marker: str,
+) -> None:
+	(tmp_path / "README.md").write_text(
+		f"`scripts/not-current.py` <!-- markdown-claims: {marker} -->\n",
+		encoding="utf-8",
+	)
+
+	assert check_paths(tmp_path) == []
+
+
+def test_non_current_marker_only_applies_to_its_line(tmp_path: Path) -> None:
+	(tmp_path / "README.md").write_text(
+		"`scripts/planned.py` <!-- markdown-claims: planned -->\n"
+		"`scripts/missing.py`\n",
+		encoding="utf-8",
+	)
+
+	assert check_paths(tmp_path) == [
+		Issue(file="README.md", claim="scripts/missing.py", kind="missing_path"),
+	]
+
+
+def test_longer_markdown_fence_is_ignored_by_path_checks(tmp_path: Path) -> None:
+	(tmp_path / "README.md").write_text(
+		"````markdown\n[Docs](docs/)\n`docs/`\n````\n",
+		encoding="utf-8",
+	)
+
+	assert check_paths(tmp_path) == []
+
+
+def test_matched_path_glob_passes_and_unmatched_path_glob_fails(tmp_path: Path) -> None:
+	script = tmp_path / "scripts" / "tools" / "present.sh"
+	script.parent.mkdir(parents=True)
+	script.write_text("#!/bin/sh\n", encoding="utf-8")
+	(tmp_path / "README.md").write_text(
+		"Current: `scripts/tools/*.sh`. Missing: `scripts/other/*.sh`.\n",
+		encoding="utf-8",
+	)
+
+	assert check_paths(tmp_path) == [
+		Issue(file="README.md", claim="scripts/other/*.sh", kind="missing_path"),
 	]
