@@ -56,6 +56,14 @@ class DraftEntry:
 	new_path: str | None = None
 
 
+def location_text(entry: DraftEntry) -> str:
+	"""Format a persisted repository-relative location."""
+	return (
+		f"{entry.path}:{entry.start_line}:{entry.start_column}-"
+		f"{entry.end_line}:{entry.end_column}"
+	)
+
+
 @dataclass
 class Draft:
 	"""Active review entries and the next stable entry number."""

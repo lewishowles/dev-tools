@@ -1,5 +1,4 @@
 from pathlib import Path
-import json
 import subprocess
 
 import pytest
@@ -58,50 +57,31 @@ def test_commands_outside_a_worktree_fail_without_creating_state(
 	assert list(tmp_path.iterdir()) == []
 
 
-def test_add_and_show_json_store_locations_without_source_excerpts(
+def test_remove_and_show_report_success_in_plain_text(
 	tmp_path: Path,
 	monkeypatch: pytest.MonkeyPatch,
 	capsys: pytest.CaptureFixture[str],
 ) -> None:
 	repo = make_repo(tmp_path)
 	prepare_selection(repo)
-	add_entry(repo, monkeypatch, "Needs a smaller boundary")
-	capsys.readouterr()
-
-	assert cli.main(["show", "--json"]) == 0
-	show_output = json.loads(capsys.readouterr().out)
-	entry = show_output["entries"][0]
-
-	assert entry["number"] == 1
-	assert entry["path"] == "review.txt"
-	assert entry["side"] == "current"
-	assert entry["start_line"] == 2
-	assert entry["start_column"] == 1
-	assert entry["end_line"] == 2
-	assert entry["end_column"] == 14
-	assert entry["comment"] == "Needs a smaller boundary"
-	assert entry["selection_hash"]
-	assert entry["repository_fingerprint"]
-	assert "new selection" not in json.dumps(entry)
-
-
-def test_remove_keeps_remaining_entry_numbers_stable(
-	tmp_path: Path,
-	monkeypatch: pytest.MonkeyPatch,
-	capsys: pytest.CaptureFixture[str],
-) -> None:
-	repo = make_repo(tmp_path)
-	prepare_selection(repo)
-	add_entry(repo, monkeypatch, "First")
-	add_entry(repo, monkeypatch, "Second")
+	add_entry(repo, monkeypatch, "First review")
+	add_entry(repo, monkeypatch, "Second review")
+	monkeypatch.chdir(repo)
 	capsys.readouterr()
 
 	assert cli.main(["remove", "1"]) == 0
-	assert cli.main(["show", "--json"]) == 0
-	output = capsys.readouterr().out
-	show_output = json.loads(output[output.index("{") :])
+	remove_output = capsys.readouterr().out
 
-	assert [entry["number"] for entry in show_output["entries"]] == [2]
+	assert "Removed" in remove_output
+	assert "entry 1" in remove_output
+
+	assert cli.main(["show"]) == 0
+	show_output = capsys.readouterr().out
+
+	assert "Active draft" in show_output
+	assert "Entry 2" in show_output
+	assert "Second review" in show_output
+	assert "Entry 1" not in show_output
 
 
 def test_preview_copy_failure_leaves_the_active_draft_unchanged(
@@ -185,7 +165,8 @@ def test_finish_retires_the_draft_and_next_add_starts_at_one(
 	finish_output = capsys.readouterr().out
 	store = resolve_store(repo)
 
-	assert "# Review feedback" in finish_output
+	assert "### 1. `review.txt:2:1-2:14`" in finish_output
+	assert "Review this line" in finish_output
 	assert not store.active_path.exists()
 	assert list(trash_root.glob("*.json"))
 
