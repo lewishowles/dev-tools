@@ -19,6 +19,9 @@ classifiers = [
 Homepage = "https://github.com/lewishowles/dev-tools/tree/main/packages/review-feedback"
 Repository = "https://github.com/lewishowles/dev-tools"
 
+[project.scripts]
+review-feedback = "review_feedback.cli:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
