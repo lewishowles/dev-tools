@@ -8,6 +8,7 @@ requires-python = ">=3.11"
 members = [
     "packages/image-for-agent",
     "packages/page-to-markdown",
+    "packages/progress",
     "packages/project-checks",
     "packages/review-feedback",
 ]
@@ -33,6 +34,7 @@ select = ["E4", "E7", "E9", "F"]
 pythonpath = [
     "packages/image-for-agent/src",
     "packages/page-to-markdown/src",
+    "packages/progress/src",
     "packages/project-checks/src",
     "packages/review-feedback/src",
 ]
