@@ -15,5 +15,5 @@ The inline example is `page-to-markdown input.html`.
 
 ```python
 def greet(name):
-	return f"Hello, {name}"
+    return f"Hello, {name}"
 ```
