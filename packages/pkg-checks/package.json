@@ -20,6 +20,6 @@
 		"test:unit": "bun test"
 	},
 	"dependencies": {
-		"@lewishowles/cli-style": "0.11.0"
+		"@lewishowles/cli-style": "0.12.1"
 	}
 }
