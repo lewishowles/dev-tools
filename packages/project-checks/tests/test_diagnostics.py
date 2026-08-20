@@ -77,6 +77,190 @@ def test_detect_python_checks_returns_test_unit_when_name_is_free(
 	assert checks[0].test_target_style == diagnostics.TEST_TARGET_STYLE_PATHS
 
 
+def test_append_xcode_tool_checks_uses_matching_shared_scheme(
+	tmp_path: Path,
+) -> None:
+	container = tmp_path / "Boilersuit.xcodeproj"
+	scheme_dir = container / "xcshareddata" / "xcschemes"
+	scheme_dir.mkdir(parents=True)
+	(scheme_dir / "BoilersuitCLI.xcscheme").write_text(
+		"""
+<Scheme>
+  <BuildAction>
+    <BuildActionEntries>
+      <BuildActionEntry>
+        <BuildableReference BlueprintName="boilersuit" />
+      </BuildActionEntry>
+    </BuildActionEntries>
+  </BuildAction>
+</Scheme>
+""",
+		encoding="utf-8",
+	)
+	checks: list[diagnostics.Check] = []
+
+	diagnostics.append_xcode_tool_checks(
+		checks,
+		["xcodebuild", "build", "-project", "Boilersuit.xcodeproj"],
+		["boilersuit"],
+		container,
+	)
+
+	assert checks[0].name == "build:cli"
+	assert checks[0].command == [
+		"xcodebuild",
+		"build",
+		"-project",
+		"Boilersuit.xcodeproj",
+		"-scheme",
+		"BoilersuitCLI",
+		"-destination",
+		diagnostics.XCODE_DESTINATION,
+	]
+
+
+def test_append_xcode_tool_checks_falls_back_to_target_without_matching_scheme(
+	tmp_path: Path,
+) -> None:
+	container = tmp_path / "Boilersuit.xcodeproj"
+	scheme_dir = container / "xcshareddata" / "xcschemes"
+	scheme_dir.mkdir(parents=True)
+	(scheme_dir / "Other.xcscheme").write_text(
+		"""
+<Scheme>
+  <BuildAction>
+    <BuildActionEntries>
+      <BuildActionEntry>
+        <BuildableReference BlueprintName="other" />
+      </BuildActionEntry>
+    </BuildActionEntries>
+  </BuildAction>
+</Scheme>
+""",
+		encoding="utf-8",
+	)
+	checks: list[diagnostics.Check] = []
+
+	diagnostics.append_xcode_tool_checks(
+		checks,
+		["xcodebuild", "build", "-project", "Boilersuit.xcodeproj"],
+		["Boilersuit"],
+		container,
+	)
+
+	assert checks[0].command[4:] == [
+		"-target",
+		"Boilersuit",
+		"-destination",
+		diagnostics.XCODE_DESTINATION,
+	]
+
+
+def test_append_xcode_tool_checks_preserves_multi_target_names_and_uses_matching_schemes(
+	tmp_path: Path,
+) -> None:
+	container = tmp_path / "Boilersuit.xcodeproj"
+	scheme_dir = container / "xcshareddata" / "xcschemes"
+	scheme_dir.mkdir(parents=True)
+	(scheme_dir / "FirstCLI.xcscheme").write_text(
+		"""
+<Scheme>
+  <BuildAction>
+    <BuildActionEntries>
+      <BuildActionEntry>
+        <BuildableReference BlueprintName="first" />
+      </BuildActionEntry>
+      <BuildActionEntry>
+        <BuildableReference BlueprintName="second" />
+      </BuildActionEntry>
+    </BuildActionEntries>
+  </BuildAction>
+</Scheme>
+""",
+		encoding="utf-8",
+	)
+	checks: list[diagnostics.Check] = []
+
+	diagnostics.append_xcode_tool_checks(
+		checks,
+		["xcodebuild", "build", "-project", "Boilersuit.xcodeproj"],
+		["first", "second"],
+		container,
+	)
+
+	assert [check.name for check in checks] == [
+		"build:cli:first",
+		"build:cli:second",
+	]
+	assert checks[0].command[4:] == [
+		"-scheme",
+		"FirstCLI",
+		"-destination",
+		diagnostics.XCODE_DESTINATION,
+	]
+	assert checks[1].command[4:] == [
+		"-scheme",
+		"FirstCLI",
+		"-destination",
+		diagnostics.XCODE_DESTINATION,
+	]
+
+
+def test_append_xcode_tool_checks_ignores_non_build_references(
+	tmp_path: Path,
+) -> None:
+	container = tmp_path / "Boilersuit.xcodeproj"
+	scheme_dir = container / "xcshareddata" / "xcschemes"
+	scheme_dir.mkdir(parents=True)
+	(scheme_dir / "BoilersuitCLI.xcscheme").write_text(
+		"""
+<Scheme>
+  <BuildAction>
+    <BuildActionEntries>
+      <BuildActionEntry>
+        <BuildableReference BlueprintName="boilersuit" />
+      </BuildActionEntry>
+    </BuildActionEntries>
+  </BuildAction>
+  <TestAction>
+    <Testables>
+      <TestableReference>
+        <BuildableReference BlueprintName="test-only" />
+      </TestableReference>
+    </Testables>
+  </TestAction>
+  <LaunchAction>
+    <BuildableProductRunnable>
+      <BuildableReference BlueprintName="runnable-only" />
+    </BuildableProductRunnable>
+  </LaunchAction>
+</Scheme>
+""",
+		encoding="utf-8",
+	)
+	checks: list[diagnostics.Check] = []
+
+	diagnostics.append_xcode_tool_checks(
+		checks,
+		["xcodebuild", "build", "-project", "Boilersuit.xcodeproj"],
+		["test-only", "runnable-only"],
+		container,
+	)
+
+	assert [check.command[4] for check in checks] == ["-target", "-target"]
+
+
+def test_xcode_scheme_build_targets_skips_malformed_scheme(
+	tmp_path: Path,
+) -> None:
+	container = tmp_path / "Boilersuit.xcodeproj"
+	scheme_dir = container / "xcshareddata" / "xcschemes"
+	scheme_dir.mkdir(parents=True)
+	(scheme_dir / "Broken.xcscheme").write_text("<Scheme>", encoding="utf-8")
+
+	assert diagnostics.xcode_scheme_build_targets(container) == {}
+
+
 def test_detect_python_checks_renames_to_avoid_collision(
 	tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

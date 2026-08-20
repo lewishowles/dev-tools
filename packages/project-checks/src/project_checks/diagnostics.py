@@ -12,6 +12,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -328,18 +329,29 @@ def detect_xcode_tool_targets(projects: list[Path]) -> list[str]:
 #     xcodebuild command prefix for the selected container.
 # @param  {list[str]}  tool_targets
 #     Xcode command-line tool target names.
+# @param  {Path}  container
+#     Xcode project or workspace container to resolve shared schemes against.
 def append_xcode_tool_checks(
-	checks: list[Check], base_command: list[str], tool_targets: list[str]
+	checks: list[Check],
+	base_command: list[str],
+	tool_targets: list[str],
+	container: Path,
 ) -> None:
 	"""Append build checks for the detected Xcode command-line targets."""
+	scheme_build_targets = xcode_scheme_build_targets(container)
+
 	if len(tool_targets) == 1:
+		target = tool_targets[0]
+		scheme_name = scheme_build_targets.get(target)
+		target_option = "-scheme" if scheme_name else "-target"
+		build_name = scheme_name or target
 		checks.append(
 			Check(
 				"build:cli",
 				[
 					*base_command,
-					"-target",
-					tool_targets[0],
+					target_option,
+					build_name,
 					"-destination",
 					XCODE_DESTINATION,
 				],
@@ -355,25 +367,69 @@ def append_xcode_tool_checks(
 		if slug in used_slugs:
 			slug = f"{slug}-{len(used_slugs) + 1}"
 		used_slugs.add(slug)
+		scheme_name = scheme_build_targets.get(target)
+		target_option = "-scheme" if scheme_name else "-target"
+		build_name = scheme_name or target
 
 		checks.append(
 			Check(
 				f"build:cli:{slug}",
-				[*base_command, "-target", target, "-destination", XCODE_DESTINATION],
+				[
+					*base_command,
+					target_option,
+					build_name,
+					"-destination",
+					XCODE_DESTINATION,
+				],
 				f"Xcode CLI target build ({target})",
 				timeout=XCODE_TIMEOUT,
 			)
 		)
 
 
+def xcode_scheme_build_targets(container: Path) -> dict[str, str]:
+	"""Map Xcode build target names to the shared scheme that builds them.
+
+	Only reads each scheme's primary build entry (BuildAction >
+	BuildActionEntries), since a scheme's other references (test targets,
+	launch/profile runnables) can repeat a target name without the scheme
+	actually building it.
+	"""
+	scheme_dir = container / "xcshareddata" / "xcschemes"
+	if not scheme_dir.is_dir():
+		return {}
+
+	build_targets: dict[str, str] = {}
+	for scheme_path in sorted(scheme_dir.glob("*.xcscheme")):
+		try:
+			root = ET.parse(scheme_path).getroot()
+		except ET.ParseError:
+			# A malformed scheme file should not block diagnostics for other targets.
+			continue
+
+		for reference in root.findall(
+			"./BuildAction/BuildActionEntries/BuildActionEntry/BuildableReference"
+		):
+			target = reference.get("BlueprintName")
+			if target:
+				# Schemes are read in path order, so if more than one scheme builds the
+				# same target, the alphabetically-last scheme name wins with no warning.
+				build_targets[target] = scheme_path.stem
+
+	return build_targets
+
+
+def list_xcode_shared_schemes(container: Path) -> list[str]:
+	"""Return the shared scheme names available for an Xcode container."""
+	scheme_dir = container / "xcshareddata" / "xcschemes"
+	if not scheme_dir.is_dir():
+		return []
+	return sorted(path.stem for path in scheme_dir.glob("*.xcscheme"))
+
+
 def find_xcode_scheme(container: Path) -> str:
 	"""Select the preferred shared Xcode scheme for a project container."""
-	scheme_dir = container / "xcshareddata" / "xcschemes"
-	schemes = (
-		sorted(path.stem for path in scheme_dir.glob("*.xcscheme"))
-		if scheme_dir.is_dir()
-		else []
-	)
+	schemes = list_xcode_shared_schemes(container)
 	if container.stem in schemes:
 		return container.stem
 	return schemes[0] if schemes else container.stem
@@ -422,7 +478,9 @@ def detect_xcode_checks(project_dir: Path) -> list[Check]:
 		),
 	]
 
-	append_xcode_tool_checks(checks, target_base, detect_xcode_tool_targets(projects))
+	append_xcode_tool_checks(
+		checks, target_base, detect_xcode_tool_targets(projects), container
+	)
 	return checks
 
 
