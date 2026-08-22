@@ -1,6 +1,6 @@
 # review-feedback
 
-`review-feedback` records comments against exact locations in a Git worktree and renders one Markdown packet for an agent or review workflow. It keeps copied source text out of the draft after the location is matched.
+`review-feedback` records comments against exact locations in a Git worktree and renders one Markdown packet for an agent or review workflow. It stores the copied source text in the draft so entries can follow incidental line shifts before output.
 
 ## Requirements
 
@@ -42,7 +42,7 @@ The copied text can match one or more locations; `add` creates one entry per mat
 
 - **Not found:** copy the exact text again from the current Git view, including enough surrounding context, then run `review-feedback add`.
 - **Spans both sides:** the selection combines current and removed content. Copy one side at a time and add separate comments.
-- **Stale during preview or finish:** the file changed after capture. Remove the affected entry with `review-feedback remove <number>`, then copy the current text and add it again.
+- **Stale during show, preview, or finish:** the file changed after capture. A unique match is relocated automatically. If the text appears at several locations, the command lists every candidate and keeps the cached location until you choose one. If the text is missing, `show` reports it and preview or finish reports every missing entry together without writing a packet.
 
 The packet uses the working-tree path and coordinates for current content. Removed content is marked `(removed at HEAD)` and uses its `HEAD` path and coordinates.
 

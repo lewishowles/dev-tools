@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from typing import TextIO
 
 from review_feedback import style
 from review_feedback.clipboard import (
@@ -15,8 +16,10 @@ from review_feedback.draft import (
 	Draft,
 	DraftEntry,
 	DraftError,
+	DraftValidationError,
 	DraftStore,
 	NoActiveDraftError,
+	ValidationReport,
 	append_entry,
 	load_active,
 	location_text,
@@ -25,6 +28,7 @@ from review_feedback.draft import (
 	resolve_store,
 	retire_active,
 	save_active,
+	validation_notice_text,
 	validate_entries,
 )
 from review_feedback.git_selection import SelectionError, resolve_selection
@@ -159,6 +163,9 @@ def _show() -> int:
 	sys.stdout.write(
 		style.status("success", "Active draft", f"{len(draft.entries)} entries") + "\n"
 	)
+	report = validate_entries(store, draft, strict=False)
+	_write_validation_notices(report, sys.stdout, include_missing=True)
+
 	for entry in draft.entries:
 		sys.stdout.write(
 			style.row(
@@ -187,7 +194,7 @@ def _preview(copy_packet: bool) -> int:
 	"""Validate and write the active packet without changing draft state."""
 	store = resolve_store()
 	draft = _require_active(store)
-	validate_entries(store, draft)
+	_validate_packet(store, draft)
 	packet = render_packet(draft)
 	_write_packet(packet, copy_packet)
 	return 0
@@ -197,7 +204,7 @@ def _finish(copy_packet: bool) -> int:
 	"""Validate, write, and retire the active packet after output succeeds."""
 	store = resolve_store()
 	draft = _require_active(store)
-	validate_entries(store, draft)
+	_validate_packet(store, draft)
 	packet = render_packet(draft)
 	_write_packet(packet, copy_packet)
 	retire_active(store, "finished")
@@ -238,6 +245,36 @@ def _require_active(store: DraftStore) -> Draft:
 		)
 
 	return draft
+
+
+def _validate_packet(store: DraftStore, draft: Draft) -> None:
+	"""Report ambiguous entries and raise if any entry is genuinely missing."""
+	report = validate_entries(store, draft, strict=False)
+	_write_validation_notices(report, sys.stderr, include_missing=False)
+
+	if report.missing:
+		raise DraftValidationError(report.missing)
+
+
+def _write_validation_notices(
+	report: ValidationReport,
+	stream: TextIO,
+	*,
+	include_missing: bool,
+) -> None:
+	"""Write one warning line per notice; skip missing-entry notices unless requested."""
+	for notice in report.notices:
+		if notice.missing and not include_missing:
+			continue
+
+		stream.write(
+			style.status(
+				"warning",
+				f"Entry {notice.entry_number}",
+				validation_notice_text(notice),
+			)
+			+ "\n"
+		)
 
 
 def _write_packet(packet: str, copy_packet: bool) -> None:

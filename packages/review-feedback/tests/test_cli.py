@@ -38,9 +38,10 @@ def add_entry(
 	repo: Path,
 	monkeypatch: pytest.MonkeyPatch,
 	comment: str = "Review this line",
+	selection: str = "new selection",
 ) -> None:
 	monkeypatch.chdir(repo)
-	monkeypatch.setattr(cli, "read_clipboard", lambda: "new selection")
+	monkeypatch.setattr(cli, "read_clipboard", lambda: selection)
 	monkeypatch.setattr("builtins.input", lambda _: comment)
 	assert cli.main(["add"]) == 0
 
@@ -146,6 +147,95 @@ def test_preview_copy_failure_leaves_the_active_draft_unchanged(
 	assert "copy failed" in capsys.readouterr().err
 
 
+def test_show_relocates_an_entry_after_lines_are_inserted(
+	tmp_path: Path,
+	monkeypatch: pytest.MonkeyPatch,
+	capsys: pytest.CaptureFixture[str],
+) -> None:
+	repo = make_repo(tmp_path)
+	prepare_selection(repo)
+	add_entry(repo, monkeypatch)
+	(repo / "review.txt").write_text(
+		"inserted\nbefore\nnew selection\nafter\n", encoding="utf-8"
+	)
+	monkeypatch.chdir(repo)
+	capsys.readouterr()
+
+	assert cli.main(["show"]) == 0
+	output = capsys.readouterr().out
+
+	assert "review.txt:3:1-3:14" in output
+	assert "review.txt:2:1-2:14" not in output
+
+
+def test_show_reports_a_missing_entry_without_blocking(
+	tmp_path: Path,
+	monkeypatch: pytest.MonkeyPatch,
+	capsys: pytest.CaptureFixture[str],
+) -> None:
+	repo = make_repo(tmp_path)
+	prepare_selection(repo)
+	add_entry(repo, monkeypatch)
+	(repo / "review.txt").write_text(
+		"before\nreplaced selection\nafter\n", encoding="utf-8"
+	)
+	monkeypatch.chdir(repo)
+	capsys.readouterr()
+
+	assert cli.main(["show"]) == 0
+	output = capsys.readouterr().out
+
+	assert "Entry 1" in output
+	assert "no longer contains the stored selection" in output
+
+
+def test_preview_relocates_an_entry_and_writes_the_current_location(
+	tmp_path: Path,
+	monkeypatch: pytest.MonkeyPatch,
+	capsys: pytest.CaptureFixture[str],
+) -> None:
+	repo = make_repo(tmp_path)
+	prepare_selection(repo)
+	add_entry(repo, monkeypatch)
+	(repo / "review.txt").write_text(
+		"inserted\nbefore\nnew selection\nafter\n", encoding="utf-8"
+	)
+	monkeypatch.chdir(repo)
+	capsys.readouterr()
+
+	assert cli.main(["preview"]) == 0
+	output = capsys.readouterr().out
+
+	assert "### 1. `review.txt:3:1-3:14`" in output
+
+
+def test_preview_reports_all_missing_entries_and_writes_no_packet(
+	tmp_path: Path,
+	monkeypatch: pytest.MonkeyPatch,
+	capsys: pytest.CaptureFixture[str],
+) -> None:
+	repo = make_repo(tmp_path)
+	(repo / "review.txt").write_text(
+		"before\nfirst selection\nmiddle\nsecond selection\nafter\n",
+		encoding="utf-8",
+	)
+	add_entry(repo, monkeypatch, "First", "first selection")
+	add_entry(repo, monkeypatch, "Second", "second selection")
+	(repo / "review.txt").write_text(
+		"before\nremoved first\nmiddle\nremoved second\nafter\n",
+		encoding="utf-8",
+	)
+	monkeypatch.chdir(repo)
+	capsys.readouterr()
+
+	assert cli.main(["preview"]) == 2
+	error = capsys.readouterr().err
+
+	assert "entry 1" in error
+	assert "entry 2" in error
+	assert "### 1." not in capsys.readouterr().out
+
+
 def test_clear_retires_an_abandoned_draft_without_a_packet(
 	tmp_path: Path,
 	monkeypatch: pytest.MonkeyPatch,
@@ -195,6 +285,9 @@ def test_finish_retires_the_draft_and_next_add_starts_at_one(
 	repo = make_repo(tmp_path)
 	prepare_selection(repo)
 	add_entry(repo, monkeypatch)
+	(repo / "review.txt").write_text(
+		"inserted\nbefore\nnew selection\nafter\n", encoding="utf-8"
+	)
 	monkeypatch.setattr(cli, "copy_to_clipboard", lambda text: None)
 	trash_root = tmp_path / "Trash"
 	monkeypatch.setattr("review_feedback.draft._trash_root", lambda: trash_root)
@@ -204,7 +297,7 @@ def test_finish_retires_the_draft_and_next_add_starts_at_one(
 	finish_output = capsys.readouterr().out
 	store = resolve_store(repo)
 
-	assert "### 1. `review.txt:2:1-2:14`" in finish_output
+	assert "### 1. `review.txt:3:1-3:14`" in finish_output
 	assert "Review this line" in finish_output
 	assert not store.active_path.exists()
 	assert list(trash_root.glob("*.json"))

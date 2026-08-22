@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from collections.abc import Sequence
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -14,6 +15,8 @@ import uuid
 from review_feedback.git_selection import (
 	GitCommandError,
 	SelectionLocation,
+	_coordinates,
+	_find_matches,
 	_resolve_worktree,
 	_run_git,
 )
@@ -23,18 +26,62 @@ class DraftError(RuntimeError):
 	"""Base error for active-draft failures."""
 
 
+@dataclass(frozen=True)
+class ValidationNotice:
+	"""One entry's validation outcome: an ambiguous relocation or a missing selection."""
+
+	entry_number: int
+	message: str
+	candidate_locations: tuple[str, ...] = ()
+	missing: bool = False
+
+
+@dataclass(frozen=True)
+class ValidationReport:
+	"""Validation notices for a draft, alongside the repository fingerprint checked against."""
+
+	current_fingerprint: str
+	notices: tuple[ValidationNotice, ...] = ()
+
+	@property
+	def missing(self) -> tuple[ValidationNotice, ...]:
+		"""Return only the notices for selections that no longer exist anywhere in their file."""
+		return tuple(notice for notice in self.notices if notice.missing)
+
+
 class NoActiveDraftError(DraftError):
 	"""Raised when a command needs an active draft but none exists."""
 
 
 class DraftValidationError(DraftError):
-	"""Raised when a stored selection no longer matches its repository location."""
+	"""Raised when one or more stored selections no longer exist anywhere in their file."""
 
-	def __init__(self, entry_number: int, message: str) -> None:
-		self.entry_number = entry_number
+	def __init__(
+		self,
+		notices: Sequence[ValidationNotice] | int,
+		message: str | None = None,
+	) -> None:
+		if isinstance(notices, int):
+			notices = (
+				ValidationNotice(
+					entry_number=notices,
+					message=message or "selection is no longer available",
+					missing=True,
+				),
+			)
+
+		if not notices:
+			raise ValueError("at least one validation notice is required")
+
+		self.entry_number = notices[0].entry_number
+		self.entry_numbers = tuple(notice.entry_number for notice in notices)
 		super().__init__(
-			f"entry {entry_number} is stale: {message}; remove it with "
-			f"`review-feedback remove {entry_number}` and capture it again"
+			"\n".join(
+				f"entry {notice.entry_number} is stale: "
+				f"{validation_notice_text(notice)}; remove it with "
+				f"`review-feedback remove {notice.entry_number}` and capture it again"
+				for notice in notices
+			)
 		)
 
 
@@ -52,6 +99,7 @@ class DraftEntry:
 	selection_hash: str
 	repository_fingerprint: str
 	comment: str
+	selection_text: str = ""
 	old_path: str | None = None
 	new_path: str | None = None
 
@@ -164,6 +212,7 @@ def append_entry(
 		selection_hash=hash_selection(selection),
 		repository_fingerprint=repository_fingerprint,
 		comment=comment,
+		selection_text=selection,
 		old_path=location.old_path,
 		new_path=location.new_path,
 	)
@@ -182,7 +231,7 @@ def remove_entry(draft: Draft, number: int) -> DraftEntry:
 
 
 def hash_selection(selection: str) -> str:
-	"""Hash copied selection text without persisting the source text."""
+	"""Return a SHA-256 digest of the given selection text, for cheap equality checks."""
 	return hashlib.sha256(selection.encode("utf-8")).hexdigest()
 
 
@@ -225,14 +274,32 @@ def repository_fingerprint(root: Path) -> str:
 	return digest.hexdigest()
 
 
-def validate_entries(store: DraftStore, draft: Draft) -> str:
-	"""Validate every stored location and return the current repository fingerprint."""
+def validate_entries(
+	store: DraftStore,
+	draft: Draft,
+	*,
+	strict: bool = True,
+) -> ValidationReport:
+	"""Validate every entry, relocating unique matches in the draft in place.
+
+	Returns a report of every entry needing attention (ambiguous or missing).
+	When strict, raises DraftValidationError if any entry is genuinely missing.
+	"""
 	current_fingerprint = repository_fingerprint(store.root)
+	notices: list[ValidationNotice] = []
 
-	for entry in draft.entries:
-		_validate_entry(store.root, entry)
+	for index, entry in enumerate(draft.entries):
+		relocated_entry, notice = _validate_entry(store.root, entry)
+		if relocated_entry is not None:
+			draft.entries[index] = relocated_entry
+		if notice is not None:
+			notices.append(notice)
 
-	return current_fingerprint
+	report = ValidationReport(current_fingerprint, tuple(notices))
+	if strict and report.missing:
+		raise DraftValidationError(report.missing)
+
+	return report
 
 
 def retire_active(store: DraftStore, reason: str) -> Path:
@@ -269,6 +336,7 @@ def _entry_from_data(data: object) -> DraftEntry:
 		selection_hash=str(data["selection_hash"]),
 		repository_fingerprint=str(data["repository_fingerprint"]),
 		comment=str(data["comment"]),
+		selection_text=str(data.get("selection_text", "")),
 		old_path=(str(data["old_path"]) if data.get("old_path") is not None else None),
 		new_path=(str(data["new_path"]) if data.get("new_path") is not None else None),
 	)
@@ -293,25 +361,69 @@ def _current_file_fingerprint(root: Path, path: bytes) -> bytes:
 		return b"<missing>"
 
 
-def _validate_entry(root: Path, entry: DraftEntry) -> None:
-	"""Validate one stored selection against its current location."""
+def _validate_entry(
+	root: Path, entry: DraftEntry
+) -> tuple[DraftEntry | None, ValidationNotice | None]:
+	"""Check one entry against its current file, relocating a single shifted match.
+
+	Returns (relocated_entry, None) when the stored text moved to exactly one
+	new location, (None, notice) when it's ambiguous or missing, or (None, None)
+	when the cached location is still correct.
+	"""
 	content = _read_entry_content(root, entry)
 	if content is None:
-		raise DraftValidationError(
-			entry.number, f"`{entry.path}` is missing or unreadable"
+		return None, ValidationNotice(
+			entry_number=entry.number,
+			message=f"`{entry.path}` is missing or unreadable",
+			missing=True,
 		)
 
 	start = _offset_for_location(content, entry.start_line, entry.start_column)
 	end = _offset_for_location(content, entry.end_line, entry.end_column)
-	if start is None or end is None or end < start:
-		raise DraftValidationError(
-			entry.number, f"`{entry.path}` no longer has that range"
+	if (
+		start is not None
+		and end is not None
+		and end >= start
+		and hash_selection(content[start:end]) == entry.selection_hash
+	):
+		return None, None
+
+	positions = (
+		_find_matches(entry.selection_text, content) if entry.selection_text else []
+	)
+	if len(positions) == 1:
+		coordinates = _coordinates(content, positions[0], len(entry.selection_text))
+		return replace(entry, **coordinates), None
+
+	if len(positions) > 1:
+		candidate_locations = tuple(
+			location_text(
+				replace(
+					entry, **_coordinates(content, position, len(entry.selection_text))
+				)
+			)
+			for position in positions
+		)
+		return None, ValidationNotice(
+			entry_number=entry.number,
+			message=f"`{entry.path}` contains the stored selection at multiple locations",
+			candidate_locations=candidate_locations,
 		)
 
-	if hash_selection(content[start:end]) != entry.selection_hash:
-		raise DraftValidationError(
-			entry.number, f"`{entry.path}` no longer contains that selection"
-		)
+	return None, ValidationNotice(
+		entry_number=entry.number,
+		message=f"`{entry.path}` no longer contains the stored selection",
+		missing=True,
+	)
+
+
+def validation_notice_text(notice: ValidationNotice) -> str:
+	"""Format a notice's message, appending candidate locations for an ambiguous match."""
+	if not notice.candidate_locations:
+		return notice.message
+
+	locations = ", ".join(notice.candidate_locations)
+	return f"{notice.message}; candidates: {locations}"
 
 
 def _read_entry_content(root: Path, entry: DraftEntry) -> str | None:
