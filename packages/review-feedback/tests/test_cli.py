@@ -229,11 +229,11 @@ def test_preview_reports_all_missing_entries_and_writes_no_packet(
 	capsys.readouterr()
 
 	assert cli.main(["preview"]) == 2
-	error = capsys.readouterr().err
+	output = capsys.readouterr()
 
-	assert "entry 1" in error
-	assert "entry 2" in error
-	assert "### 1." not in capsys.readouterr().out
+	assert "entry 1" in output.err
+	assert "entry 2" in output.err
+	assert "### 1." not in output.out
 
 
 def test_clear_retires_an_abandoned_draft_without_a_packet(

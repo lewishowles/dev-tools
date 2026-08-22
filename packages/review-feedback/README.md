@@ -42,7 +42,7 @@ The copied text can match one or more locations; `add` creates one entry per mat
 
 - **Not found:** copy the exact text again from the current Git view, including enough surrounding context, then run `review-feedback add`.
 - **Spans both sides:** the selection combines current and removed content. Copy one side at a time and add separate comments.
-- **Stale during show, preview, or finish:** the file changed after capture. A unique match is relocated automatically. If the text appears at several locations, the command lists every candidate and keeps the cached location until you choose one. If the text is missing, `show` reports it and preview or finish reports every missing entry together without writing a packet.
+- **Stale during show, preview, or finish:** the file changed after capture. A unique match is relocated automatically. If the text appears at several locations, the command lists every candidate and keeps the cached location; remove and re-add the entry once you've made the text unique, or wait for a further edit to disambiguate it. If the text is missing, `show` reports it and preview or finish reports every missing entry together without writing a packet.
 
 The packet uses the working-tree path and coordinates for current content. Removed content is marked `(removed at HEAD)` and uses its `HEAD` path and coordinates.
 

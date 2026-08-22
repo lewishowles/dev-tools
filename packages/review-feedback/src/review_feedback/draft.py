@@ -56,24 +56,10 @@ class NoActiveDraftError(DraftError):
 class DraftValidationError(DraftError):
 	"""Raised when one or more stored selections no longer exist anywhere in their file."""
 
-	def __init__(
-		self,
-		notices: Sequence[ValidationNotice] | int,
-		message: str | None = None,
-	) -> None:
-		if isinstance(notices, int):
-			notices = (
-				ValidationNotice(
-					entry_number=notices,
-					message=message or "selection is no longer available",
-					missing=True,
-				),
-			)
-
+	def __init__(self, notices: Sequence[ValidationNotice]) -> None:
 		if not notices:
 			raise ValueError("at least one validation notice is required")
 
-		self.entry_number = notices[0].entry_number
 		self.entry_numbers = tuple(notice.entry_number for notice in notices)
 		super().__init__(
 			"\n".join(
