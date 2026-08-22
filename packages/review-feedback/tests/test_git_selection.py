@@ -6,7 +6,6 @@ import pytest
 from review_feedback.git_selection import (
 	EmptySelectionError,
 	GitWorktreeError,
-	SelectionAmbiguousError,
 	SelectionError,
 	SelectionLocation,
 	SelectionNotFoundError,
@@ -70,7 +69,7 @@ def test_resolves_a_mid_line_single_line_selection(tmp_path: Path) -> None:
 		"codex|implementer|gpt-5.6-luna|implementer.md|xhigh", repo
 	)
 
-	assert result == location("review.txt", "current", 1, 21, 1, 72)
+	assert result == [location("review.txt", "current", 1, 21, 1, 72)]
 
 
 def test_resolves_a_partial_multi_line_selection(tmp_path: Path) -> None:
@@ -82,7 +81,7 @@ def test_resolves_a_partial_multi_line_selection(tmp_path: Path) -> None:
 
 	result = resolve_selection("first\nmiddle line\nlast", repo)
 
-	assert result == location("review.txt", "current", 2, 7, 4, 5)
+	assert result == [location("review.txt", "current", 2, 7, 4, 5)]
 
 
 def test_resolves_unchanged_context_on_the_current_side(tmp_path: Path) -> None:
@@ -94,7 +93,7 @@ def test_resolves_unchanged_context_on_the_current_side(tmp_path: Path) -> None:
 
 	result = resolve_selection("context stable", repo)
 
-	assert result == location("review.txt", "current", 2, 1, 2, 15)
+	assert result == [location("review.txt", "current", 2, 1, 2, 15)]
 
 
 def test_resolves_added_removed_renamed_and_untracked_locations(
@@ -121,35 +120,39 @@ def test_resolves_added_removed_renamed_and_untracked_locations(
 	)
 	(repo.joinpath("untracked.txt")).write_text("untracked phrase\n", encoding="utf-8")
 
-	assert resolve_selection("added phrase", repo) == location(
-		"added.txt", "current", 2, 1, 2, 13
-	)
-	assert resolve_selection("removed phrase", repo) == location(
-		"removed.txt", "removed", 2, 1, 2, 15
-	)
-	assert resolve_selection("old rename phrase", repo) == location(
-		"old-name.txt",
-		"removed",
-		3,
-		1,
-		3,
-		18,
-		"old-name.txt",
-		"new-name.txt",
-	)
-	assert resolve_selection("new rename phrase", repo) == location(
-		"new-name.txt",
-		"current",
-		3,
-		1,
-		3,
-		18,
-		"old-name.txt",
-		"new-name.txt",
-	)
-	assert resolve_selection("untracked phrase", repo) == location(
-		"untracked.txt", "current", 1, 1, 1, 17
-	)
+	assert resolve_selection("added phrase", repo) == [
+		location("added.txt", "current", 2, 1, 2, 13)
+	]
+	assert resolve_selection("removed phrase", repo) == [
+		location("removed.txt", "removed", 2, 1, 2, 15)
+	]
+	assert resolve_selection("old rename phrase", repo) == [
+		location(
+			"old-name.txt",
+			"removed",
+			3,
+			1,
+			3,
+			18,
+			"old-name.txt",
+			"new-name.txt",
+		)
+	]
+	assert resolve_selection("new rename phrase", repo) == [
+		location(
+			"new-name.txt",
+			"current",
+			3,
+			1,
+			3,
+			18,
+			"old-name.txt",
+			"new-name.txt",
+		)
+	]
+	assert resolve_selection("untracked phrase", repo) == [
+		location("untracked.txt", "current", 1, 1, 1, 17)
+	]
 
 
 def test_rejects_undecodable_binary_content(tmp_path: Path) -> None:
@@ -160,14 +163,18 @@ def test_rejects_undecodable_binary_content(tmp_path: Path) -> None:
 		resolve_selection("binary selection", repo)
 
 
-def test_rejects_repeated_text_with_more_context_advice(tmp_path: Path) -> None:
+def test_resolves_every_repeated_text_location(tmp_path: Path) -> None:
 	repo = make_repo(tmp_path, {"review.txt": "first\nrepeat\nrepeat\n"})
 	(repo / "review.txt").write_text(
 		"first\nrepeat\nrepeat changed\n", encoding="utf-8"
 	)
 
-	with pytest.raises(SelectionAmbiguousError, match="select more context"):
-		resolve_selection("repeat", repo)
+	result = resolve_selection("repeat", repo)
+
+	assert result == [
+		location("review.txt", "current", 2, 1, 2, 7),
+		location("review.txt", "current", 3, 1, 3, 7),
+	]
 
 
 def test_rejects_a_selection_that_combines_old_and_current_sides(

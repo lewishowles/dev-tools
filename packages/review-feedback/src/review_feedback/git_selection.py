@@ -31,12 +31,6 @@ class EmptySelectionError(SelectionError):
 	pass
 
 
-class SelectionAmbiguousError(SelectionError):
-	"""Raised when a selection matches more than one location."""
-
-	pass
-
-
 class SelectionNotFoundError(SelectionError):
 	"""Raised when a selection matches no location."""
 
@@ -90,14 +84,13 @@ class _FileContents:
 
 def resolve_selection(
 	selection: str, cwd: Path | str | None = None
-) -> SelectionLocation:
-	"""Resolve `selection` to the one location it matches in the worktree at `cwd`.
+) -> list[SelectionLocation]:
+	"""Resolve `selection` to every location it matches in the worktree at `cwd`.
 
 	Current-side content is checked before removed (HEAD-only) content for
 	each file, so unchanged context common to both sides always resolves to
-	its current location. Raises EmptySelectionError, SelectionAmbiguousError,
-	SelectionNotFoundError, or SelectionSpansSidesError; see each error class
-	for the failure it reports.
+	its current location. Raises EmptySelectionError, SelectionNotFoundError,
+	or SelectionSpansSidesError; see each error class for the failure it reports.
 	"""
 	if selection == "":
 		raise EmptySelectionError("clipboard selection is empty")
@@ -132,13 +125,8 @@ def resolve_selection(
 				)
 			)
 
-	if len(matches) == 1:
-		return matches[0]
-
-	if len(matches) > 1:
-		raise SelectionAmbiguousError(
-			"selection matches more than once; select more context"
-		)
+	if matches:
+		return matches
 
 	if _selection_spans_sides(selection, file_contents):
 		raise SelectionSpansSidesError(

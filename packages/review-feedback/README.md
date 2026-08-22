@@ -38,10 +38,9 @@ Use `review-feedback preview --copy` if you want to copy the packet while keepin
 
 ## Recover from a failed selection
 
-The copied text must identify one location. When the command reports a failure, no entry is added:
+The copied text can match one or more locations; `add` creates one entry per match, all sharing the same comment. When the command reports a failure, no entry is added:
 
 - **Not found:** copy the exact text again from the current Git view, including enough surrounding context, then run `review-feedback add`.
-- **Ambiguous:** the text appears in more than one location. Copy more surrounding context and run `review-feedback add` again.
 - **Spans both sides:** the selection combines current and removed content. Copy one side at a time and add separate comments.
 - **Stale during preview or finish:** the file changed after capture. Remove the affected entry with `review-feedback remove <number>`, then copy the current text and add it again.
 

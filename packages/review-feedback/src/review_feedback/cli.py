@@ -13,6 +13,7 @@ from review_feedback.clipboard import (
 )
 from review_feedback.draft import (
 	Draft,
+	DraftEntry,
 	DraftError,
 	DraftStore,
 	NoActiveDraftError,
@@ -120,24 +121,29 @@ def _run_command(args: argparse.Namespace) -> int:
 
 
 def _add() -> int:
-	"""Capture clipboard text, prompt for a comment, and append one entry."""
+	"""Capture clipboard text, resolve its locations, and append entries."""
 	store = resolve_store()
 	selection = read_clipboard()
+	locations = resolve_selection(selection, store.root)
 	comment = _prompt_comment()
-	location = resolve_selection(selection, store.root)
 	fingerprint = repository_fingerprint(store.root)
 	draft = load_active(store) or Draft([])
-	entry = append_entry(draft, location, selection, comment, fingerprint)
+	entries: list[DraftEntry] = []
+	for location in locations:
+		entries.append(append_entry(draft, location, selection, comment, fingerprint))
+
 	save_active(store, draft)
 
-	sys.stdout.write(
-		style.status(
-			"success",
-			"Added",
-			f"entry {entry.number} for {location_text(entry)}",
+	for entry in entries:
+		sys.stdout.write(
+			style.status(
+				"success",
+				"Added",
+				f"entry {entry.number} for {location_text(entry)}",
+			)
+			+ "\n"
 		)
-		+ "\n"
-	)
+
 	return 0
 
 

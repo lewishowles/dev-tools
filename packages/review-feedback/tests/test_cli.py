@@ -57,6 +57,45 @@ def test_commands_outside_a_worktree_fail_without_creating_state(
 	assert list(tmp_path.iterdir()) == []
 
 
+def test_add_creates_an_entry_for_each_matching_location(
+	tmp_path: Path,
+	monkeypatch: pytest.MonkeyPatch,
+	capsys: pytest.CaptureFixture[str],
+) -> None:
+	repo = make_repo(tmp_path)
+	(repo / "review.txt").write_text(
+		"before\nnew selection\nnew selection\nafter\n", encoding="utf-8"
+	)
+	monkeypatch.chdir(repo)
+	monkeypatch.setattr(cli, "read_clipboard", lambda: "new selection")
+	monkeypatch.setattr("builtins.input", lambda _: "Review both lines")
+
+	assert cli.main(["add"]) == 0
+	output = capsys.readouterr().out
+
+	assert "entry 1 for review.txt:2:1-2:14" in output
+	assert "entry 2 for review.txt:3:1-3:14" in output
+
+
+def test_add_resolves_selection_before_prompting_for_comment(
+	tmp_path: Path,
+	monkeypatch: pytest.MonkeyPatch,
+	capsys: pytest.CaptureFixture[str],
+) -> None:
+	repo = make_repo(tmp_path)
+	monkeypatch.chdir(repo)
+	monkeypatch.setattr(cli, "read_clipboard", lambda: "missing selection")
+
+	def fail_prompt(_: str) -> str:
+		pytest.fail("comment should not be prompted for an invalid selection")
+
+	monkeypatch.setattr("builtins.input", fail_prompt)
+
+	assert cli.main(["add"]) == 2
+
+	assert "selection was not found" in capsys.readouterr().err
+
+
 def test_remove_and_show_report_success_in_plain_text(
 	tmp_path: Path,
 	monkeypatch: pytest.MonkeyPatch,
