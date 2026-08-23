@@ -81,16 +81,25 @@ def _render_report(result) -> str:
 	if result.error is not None:
 		return row_group(
 			[
-				{"label": "Source", "value": result.source},
-				{"label": "Error", "value": str(result.error), "result": "failed"},
+				{"label": "Source", "value": result.source, "wrap": False},
+				{
+					"label": "Error",
+					"value": str(result.error),
+					"result": "failed",
+					"wrap": False,
+				},
 			]
 		)
 
 	report = result.report
 	output = row_group(
 		[
-			{"label": "Source", "value": report.source},
-			{"label": "Selected content root", "value": report.selected_content_root},
+			{"label": "Source", "value": report.source, "wrap": False},
+			{
+				"label": "Selected content root",
+				"value": report.selected_content_root,
+				"wrap": False,
+			},
 			{
 				"label": "Removed elements",
 				"value": f"{report.removed_elements_summary} (total={report.removed_elements_total})",
