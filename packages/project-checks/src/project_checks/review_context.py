@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import subprocess
 from pathlib import Path
@@ -7,6 +8,9 @@ from typing import Any
 
 from project_checks import change_impact, repo_context
 
+
+# Default target for --project-dir when the flag is omitted.
+DEFAULT_PROJECT_DIR = Path.cwd()
 
 MAX_SECTION_ENTRIES = 20
 
@@ -453,3 +457,30 @@ def render_markdown(context: dict[str, Any]) -> str:
 def render_json(context: dict[str, Any]) -> str:
 	"""Render the bounded review context as fixed-order JSON."""
 	return json.dumps(_render_data(context), ensure_ascii=False, indent=2)
+
+
+def main() -> None:
+	"""Parse CLI arguments and print the bounded review context."""
+	parser = argparse.ArgumentParser(
+		description="Print bounded project context for a focused review."
+	)
+	parser.add_argument(
+		"--project-dir",
+		type=Path,
+		default=DEFAULT_PROJECT_DIR,
+		help="Project directory to inspect.",
+	)
+	parser.add_argument(
+		"--json", action="store_true", help="Print machine-readable JSON."
+	)
+	args = parser.parse_args()
+
+	context = build_review_context(args.project_dir.resolve())
+	if args.json:
+		print(render_json(context))
+	else:
+		print(render_markdown(context))
+
+
+if __name__ == "__main__":
+	main()

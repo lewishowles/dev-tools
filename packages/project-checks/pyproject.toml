@@ -25,6 +25,7 @@ project-checks-change-impact = "project_checks.change_impact:main"
 project-checks-generated-file-guard = "project_checks.generated_file_guard:main"
 project-checks-markdown-claims = "project_checks.markdown_claims:main"
 project-checks-repo-context = "project_checks.repo_context:main"
+project-checks-review-context = "project_checks.review_context:main"
 
 [build-system]
 requires = ["hatchling"]

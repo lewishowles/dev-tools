@@ -21,13 +21,14 @@ To install it into an existing Python environment with `pip`:
 pip install project-checks
 ```
 
-This installs five commands on your PATH:
+This installs six commands on your PATH:
 
 - `project-checks`: list or run conservative project diagnostics (package scripts such as lint, typecheck, and test)
 - `project-checks-change-impact`: summarise local change impact from Git status
 - `project-checks-generated-file-guard`: detect generated-file edits and stale generated output
 - `project-checks-markdown-claims`: check that current paths named in Markdown files exist
 - `project-checks-repo-context`: print a compact repo briefing for agent session startup
+- `project-checks-review-context`: print bounded project context for a focused review
 
 ## Usage
 
@@ -38,11 +39,12 @@ project-checks --list --project ./my-project
 # Run one or more checks
 project-checks --check lint --check test:unit --project ./my-project
 
-# The other four commands take --project-dir instead of --project
+# The other five commands take --project-dir instead of --project
 project-checks-change-impact --project-dir ./my-project
 project-checks-generated-file-guard --project-dir ./my-project
 project-checks-markdown-claims --project-dir ./my-project --mode paths
 project-checks-repo-context --project-dir ./my-project
+project-checks-review-context --project-dir ./my-project
 ```
 
 Add `--json` to any command for machine-readable output.
