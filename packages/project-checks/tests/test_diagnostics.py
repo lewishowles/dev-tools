@@ -62,6 +62,50 @@ def test_detect_python_checks_requires_pytest_test_files(
 	assert detect_python_checks(tmp_path, set()) == []
 
 
+def test_detect_python_checks_registers_ruff_checks_when_configured(
+	tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+	monkeypatch.setattr(diagnostics.shutil, "which", lambda _name: "/usr/bin/uv")
+	(tmp_path / "pyproject.toml").write_text("[tool.ruff]\n", encoding="utf-8")
+
+	checks = detect_python_checks(tmp_path, set())
+
+	assert [(check.name, check.command) for check in checks] == [
+		("lint:python", ["uv", "run", "ruff", "check"]),
+		("format:python", ["uv", "run", "ruff", "format", "--check"]),
+	]
+
+
+def test_detect_python_checks_skips_ruff_without_ruff_configuration(
+	tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+	monkeypatch.setattr(diagnostics.shutil, "which", lambda _name: "/usr/bin/uv")
+	(tmp_path / "pyproject.toml").write_text(
+		"[tool.pytest.ini_options]\n", encoding="utf-8"
+	)
+	(tmp_path / "test_example.py").write_text("", encoding="utf-8")
+
+	checks = detect_python_checks(tmp_path, set())
+	check_names = {check.name for check in checks}
+
+	assert "lint:python" not in check_names
+	assert "format:python" not in check_names
+
+
+def test_detect_python_checks_skips_ruff_for_malformed_pyproject(
+	tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+	monkeypatch.setattr(diagnostics.shutil, "which", lambda _name: "/usr/bin/uv")
+	(tmp_path / "pyproject.toml").write_text("[tool.ruff\n", encoding="utf-8")
+	(tmp_path / "test_example.py").write_text("", encoding="utf-8")
+
+	checks = detect_python_checks(tmp_path, set())
+	check_names = {check.name for check in checks}
+
+	assert "lint:python" not in check_names
+	assert "format:python" not in check_names
+
+
 def test_detect_python_checks_returns_test_unit_when_name_is_free(
 	tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

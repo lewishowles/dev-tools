@@ -12,6 +12,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tomllib
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
@@ -533,23 +534,48 @@ def has_pytest_test_files(project_dir: Path) -> bool:
 
 
 def detect_python_checks(project_dir: Path, existing_names: set[str]) -> list[Check]:
-	"""Build a Python unit-test check when the project supports pytest."""
-	if not (project_dir / "pyproject.toml").exists():
-		return []
-	if not shutil.which("uv"):
-		return []
-	if not has_pytest_test_files(project_dir):
+	"""Build Python diagnostics checks when the project supports them."""
+	pyproject_path = project_dir / "pyproject.toml"
+	if not pyproject_path.exists() or not shutil.which("uv"):
 		return []
 
+	try:
+		pyproject = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+	except (OSError, tomllib.TOMLDecodeError):
+		pyproject = {}
+
+	checks: list[Check] = []
+	tool_config = pyproject.get("tool")
+	ruff_config = tool_config.get("ruff") if isinstance(tool_config, dict) else None
+	if isinstance(ruff_config, dict):
+		checks.extend(
+			[
+				Check(
+					"lint:python",
+					["uv", "run", "ruff", "check"],
+					"Ruff lint checks",
+				),
+				Check(
+					"format:python",
+					["uv", "run", "ruff", "format", "--check"],
+					"Ruff format check",
+				),
+			]
+		)
+
+	if not has_pytest_test_files(project_dir):
+		return checks
+
 	name = "test:unit:python" if "test:unit" in existing_names else "test:unit"
-	return [
+	checks.append(
 		Check(
 			name,
 			["uv", "run", "pytest"],
 			"pytest test suite",
 			test_target_style=TEST_TARGET_STYLE_PATHS,
 		)
-	]
+	)
+	return checks
 
 
 def discover_checks(project_dir: Path) -> tuple[list[Check], list[str]]:
