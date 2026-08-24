@@ -1,3 +1,4 @@
+import argparse
 import sys
 from pathlib import Path
 
@@ -119,6 +120,100 @@ def test_detect_python_checks_returns_test_unit_when_name_is_free(
 	assert checks[0].name == "test:unit"
 	assert checks[0].command == ["uv", "run", "pytest"]
 	assert checks[0].test_target_style == diagnostics.TEST_TARGET_STYLE_PATHS
+
+
+@pytest.mark.parametrize("command", ["vitest run", "npx vitest run", "vp test run"])
+def test_package_test_target_style_identifies_vitest(command: str) -> None:
+	style = diagnostics.package_test_target_style("test:unit:run", command)
+
+	assert style == diagnostics.TEST_TARGET_STYLE_VITEST
+
+
+def test_package_test_target_style_preserves_other_unit_runners() -> None:
+	style = diagnostics.package_test_target_style("test:unit", "bun test")
+
+	assert style == diagnostics.TEST_TARGET_STYLE_PATHS
+
+
+def test_apply_vitest_worker_limit_caps_full_suite() -> None:
+	check = diagnostics.Check(
+		"test:unit:run",
+		["bun", "run", "test:unit:run"],
+		"unit tests",
+		test_target_style=diagnostics.TEST_TARGET_STYLE_VITEST,
+	)
+
+	limited = diagnostics.apply_vitest_worker_limit([check], 2)
+
+	assert limited[0].command == [
+		"bun",
+		"run",
+		"test:unit:run",
+		"--",
+		"--maxWorkers=2",
+	]
+
+
+def test_apply_vitest_worker_limit_precedes_test_targets() -> None:
+	check = diagnostics.Check(
+		"test:unit:run",
+		["bun", "run", "test:unit:run"],
+		"unit tests",
+		test_target_style=diagnostics.TEST_TARGET_STYLE_VITEST,
+	)
+	targeted, errors = diagnostics.apply_test_targets([check], ["src/example.test.ts"])
+
+	limited = diagnostics.apply_vitest_worker_limit(targeted, 2)
+
+	assert errors == []
+	assert limited[0].command == [
+		"bun",
+		"run",
+		"test:unit:run",
+		"--",
+		"--maxWorkers=2",
+		"src/example.test.ts",
+	]
+
+
+def test_apply_vitest_worker_limit_allows_runner_default() -> None:
+	check = diagnostics.Check(
+		"test:unit:run",
+		["bun", "run", "test:unit:run"],
+		"unit tests",
+		test_target_style=diagnostics.TEST_TARGET_STYLE_VITEST,
+	)
+
+	unlimited = diagnostics.apply_vitest_worker_limit([check], None)
+
+	assert unlimited[0].command == ["bun", "run", "test:unit:run"]
+
+
+def test_apply_vitest_worker_limit_preserves_other_test_runners() -> None:
+	check = diagnostics.Check(
+		"test:unit",
+		["bun", "run", "test:unit"],
+		"unit tests",
+		test_target_style=diagnostics.TEST_TARGET_STYLE_PATHS,
+	)
+
+	limited = diagnostics.apply_vitest_worker_limit([check], 2)
+
+	assert limited[0].command == ["bun", "run", "test:unit"]
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "many"])
+def test_parse_test_workers_rejects_invalid_values(value: str) -> None:
+	with pytest.raises(argparse.ArgumentTypeError):
+		diagnostics.parse_test_workers(value)
+
+
+def test_parse_test_workers_accepts_auto() -> None:
+	assert diagnostics.parse_test_workers("auto") is None
+
+
+def test_parse_test_workers_accepts_positive_integer() -> None:
+	assert diagnostics.parse_test_workers("3") == 3
 
 
 def test_append_xcode_tool_checks_uses_matching_shared_scheme(

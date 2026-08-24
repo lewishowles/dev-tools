@@ -14,7 +14,7 @@ import subprocess
 import sys
 import tomllib
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +35,8 @@ EPILOG = """Commands:
   --test-glob PATTERN Run a targetable test check against matching files. Repeat for multiple globs.
   --test-match PATTERN
                       Run a targetable test check against files whose paths contain a pattern.
+  --test-workers COUNT|auto
+                      Limit detected Vitest checks to a worker count. Default: 2.
   --all               Run conservative checks that do not require explicit targets.
   --json              Return machine-readable output for the selected mode.
 
@@ -132,7 +134,11 @@ XCODE_DESTINATION = os.environ.get(
 # Test target argument formats used by supported runners.
 TEST_TARGET_STYLE_PATHS = "paths"
 TEST_TARGET_STYLE_PLAYWRIGHT = "playwright"
+TEST_TARGET_STYLE_VITEST = "vitest"
 TEST_TARGET_STYLE_XCODE = "xcode"
+
+# Vitest diagnostics leave capacity for the user's other local work.
+DEFAULT_VITEST_WORKERS = 2
 
 # Lines worth keeping from a verbose xcodebuild log when building the compact summary.
 # Deliberately excludes the per-suite "started"/"passed" chatter, which floods the output.
@@ -503,9 +509,24 @@ def script_skip_reason(name: str, command: str) -> str | None:
 	return None
 
 
+def command_uses_vitest(command: str) -> bool:
+	"""Return whether a package script directly invokes Vitest or Vite Plus tests."""
+	try:
+		parts = shlex.split(command)
+	except ValueError:
+		return False
+
+	if any(Path(part).name == "vitest" for part in parts):
+		return True
+
+	return parts[:2] in (["vp", "test"], ["vite-plus", "test"])
+
+
 def package_test_target_style(name: str, command: str) -> str | None:
 	"""Return the test-target style supported by a package script."""
 	if name in UNIT_TEST_SCRIPT_NAMES:
+		if command_uses_vitest(command):
+			return TEST_TARGET_STYLE_VITEST
 		return TEST_TARGET_STYLE_PATHS
 	if name == "test:component" and "playwright" in command.lower():
 		return TEST_TARGET_STYLE_PLAYWRIGHT
@@ -748,7 +769,8 @@ def resolve_fuzzy_test_targets(
 						)
 					)
 					or (
-						check.test_target_style == TEST_TARGET_STYLE_PATHS
+						check.test_target_style
+						in {TEST_TARGET_STYLE_PATHS, TEST_TARGET_STYLE_VITEST}
 						and (
 							filename.endswith(
 								(".test.ts", ".test.tsx", ".test.js", ".test.jsx")
@@ -834,6 +856,51 @@ def apply_test_targets(
 		test_targets_required=check.test_targets_required,
 	)
 	return [targeted], []
+
+
+def apply_vitest_worker_limit(checks: list[Check], workers: int | None) -> list[Check]:
+	"""Limit detected Vitest checks while preserving other test runners."""
+	if workers is None:
+		return checks
+
+	limited_checks = []
+	worker_argument = f"--maxWorkers={workers}"
+
+	for check in checks:
+		if check.test_target_style != TEST_TARGET_STYLE_VITEST:
+			limited_checks.append(check)
+			continue
+
+		command = [*check.command]
+		if "--" in command:
+			separator_index = command.index("--")
+			command.insert(separator_index + 1, worker_argument)
+		else:
+			command.extend(["--", worker_argument])
+
+		limited_checks.append(replace(check, command=command))
+
+	return limited_checks
+
+
+def parse_test_workers(value: str) -> int | None:
+	"""Parse a positive Vitest worker count or the unrestricted auto value."""
+	if value == "auto":
+		return None
+
+	try:
+		workers = int(value)
+	except ValueError as error:
+		raise argparse.ArgumentTypeError(
+			"test workers must be a positive integer or auto"
+		) from error
+
+	if workers < 1:
+		raise argparse.ArgumentTypeError(
+			"test workers must be a positive integer or auto"
+		)
+
+	return workers
 
 
 def command_label(command: list[str]) -> str:
@@ -1216,6 +1283,13 @@ def main() -> int:
 		help="Run a targetable test check against files whose project-relative paths contain a pattern. Repeat for multiple patterns.",
 	)
 	parser.add_argument(
+		"--test-workers",
+		type=parse_test_workers,
+		default=DEFAULT_VITEST_WORKERS,
+		metavar="COUNT|auto",
+		help="Maximum workers for detected Vitest checks. Use auto for the runner default. Default: 2.",
+	)
+	parser.add_argument(
 		"--all",
 		action="store_true",
 		help="Run conservative checks that do not require explicit targets. Use only after approval for broad verification.",
@@ -1265,10 +1339,11 @@ def main() -> int:
 	list_only = args.list or (not args.check and not args.all)
 
 	if list_only:
+		listed_checks = apply_vitest_worker_limit(checks, args.test_workers)
 		output = (
-			render_list_json(project_dir, checks, skipped)
+			render_list_json(project_dir, listed_checks, skipped)
 			if args.json
-			else render_list_markdown(project_dir, checks, skipped)
+			else render_list_markdown(project_dir, listed_checks, skipped)
 		)
 		print(output, end="")
 		return 0
@@ -1311,6 +1386,8 @@ def main() -> int:
 		for error in target_errors:
 			print(style.status("failed", "Error", error), file=sys.stderr)
 		return 2
+
+	checks_to_run = apply_vitest_worker_limit(checks_to_run, args.test_workers)
 
 	log_dir = project_dir / ".agent" / "diagnostics"
 	log_dir.mkdir(parents=True, exist_ok=True)

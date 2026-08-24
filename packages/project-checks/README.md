@@ -39,6 +39,9 @@ project-checks --list --project ./my-project
 # Run one or more checks
 project-checks --check lint --check test:unit --project ./my-project
 
+# Let a detected Vitest check use its normal worker count instead of the default limit of two
+project-checks --check test:unit --test-workers auto --project ./my-project
+
 # The other five commands take --project-dir instead of --project
 project-checks-change-impact --project-dir ./my-project
 project-checks-generated-file-guard --project-dir ./my-project
