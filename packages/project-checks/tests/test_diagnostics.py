@@ -135,6 +135,85 @@ def test_package_test_target_style_preserves_other_unit_runners() -> None:
 	assert style == diagnostics.TEST_TARGET_STYLE_PATHS
 
 
+def test_apply_test_targets_filters_non_python_files_for_pytest() -> None:
+	check = diagnostics.Check(
+		"test:unit",
+		["uv", "run", "pytest"],
+		"pytest tests",
+		test_target_style=diagnostics.TEST_TARGET_STYLE_PATHS,
+	)
+	targets = [
+		"tests/test_example.py",
+		"tests/example_test.py",
+		"src/example.test.ts",
+		"src/example.test.js",
+	]
+
+	targeted, errors = diagnostics.apply_test_targets([check], targets)
+
+	assert errors == []
+	assert targeted[0].command == [
+		"uv",
+		"run",
+		"pytest",
+		"--",
+		"tests/test_example.py",
+		"tests/example_test.py",
+	]
+
+
+def test_apply_test_targets_rejects_non_python_files_for_pytest() -> None:
+	check = diagnostics.Check(
+		"test:unit",
+		["uv", "run", "pytest"],
+		"pytest tests",
+		test_target_style=diagnostics.TEST_TARGET_STYLE_PATHS,
+	)
+
+	targeted, errors = diagnostics.apply_test_targets(
+		[check], ["src/example.test.ts", "src/example.test.js"]
+	)
+
+	assert targeted == [check]
+	assert errors == ["no matching Python test files for test:unit"]
+
+
+@pytest.mark.parametrize(
+	("target_style", "command", "targets", "expected_arguments"),
+	[
+		(
+			diagnostics.TEST_TARGET_STYLE_VITEST,
+			["bun", "run", "test:unit:run"],
+			["tests/test_example.py", "src/example.test.ts"],
+			["--", "tests/test_example.py", "src/example.test.ts"],
+		),
+		(
+			diagnostics.TEST_TARGET_STYLE_PLAYWRIGHT,
+			["bun", "run", "test:component"],
+			["tests/test_example.py", "src/example.pw.ts"],
+			["--", "--workers=1", "tests/test_example.py", "src/example.pw.ts"],
+		),
+	],
+)
+def test_apply_test_targets_preserves_non_pytest_targets(
+	target_style: str,
+	command: list[str],
+	targets: list[str],
+	expected_arguments: list[str],
+) -> None:
+	check = diagnostics.Check(
+		"test:unit",
+		command,
+		"targeted tests",
+		test_target_style=target_style,
+	)
+
+	targeted, errors = diagnostics.apply_test_targets([check], targets)
+
+	assert errors == []
+	assert targeted[0].command == [*command, *expected_arguments]
+
+
 def test_apply_vitest_worker_limit_caps_full_suite() -> None:
 	check = diagnostics.Check(
 		"test:unit:run",

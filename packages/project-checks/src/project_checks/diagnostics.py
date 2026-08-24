@@ -838,6 +838,17 @@ def apply_test_targets(
 	if check.test_target_style is None:
 		return checks, [f"check does not support test targets: {check.name}"]
 
+	if check.command[:3] == ["uv", "run", "pytest"]:
+		# Pytest receives only files that follow its Python test naming convention.
+		targets = [
+			target
+			for target in targets
+			if (Path(target).name.startswith("test_") and target.endswith(".py"))
+			or Path(target).name.endswith("_test.py")
+		]
+		if not targets:
+			return checks, [f"no matching Python test files for {check.name}"]
+
 	target_arguments = ["--", *targets]
 	if check.test_target_style == TEST_TARGET_STYLE_PLAYWRIGHT:
 		target_arguments = ["--", "--workers=1", *targets]
