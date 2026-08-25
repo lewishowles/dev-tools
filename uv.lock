@@ -16,6 +16,12 @@ members = [
 name = "agents-progress"
 version = "0.1.0"
 source = { editable = "packages/progress" }
+dependencies = [
+    { name = "prompt-toolkit" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "prompt-toolkit", specifier = ">=3.0" }]
 
 [[package]]
 name = "colorama"
