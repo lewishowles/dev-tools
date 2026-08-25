@@ -5,7 +5,7 @@ from urllib.parse import urljoin
 
 from page_to_markdown.select import _DomBuilder, _DomNode
 
-
+# HTML elements that start block-level Markdown paragraphs.
 BLOCK_TAGS = frozenset(
 	[
 		"address",
@@ -40,12 +40,16 @@ BLOCK_TAGS = frozenset(
 	]
 )
 
+# HTML elements omitted from Markdown output.
 IGNORED_TAGS = frozenset(
 	["button", "head", "input", "label", "link", "meta", "template", "title"]
 )
 
+# Pattern that identifies a language class on a code element.
 LANGUAGE_PATTERN = re.compile(r"(?:^|\s)language-([^\s]+)")
+# Pattern used to find the longest backtick run in inline code.
 BACKTICK_PATTERN = re.compile(r"`+")
+# Pattern used to collapse whitespace in rendered text.
 WHITESPACE_PATTERN = re.compile(r"\s+")
 
 

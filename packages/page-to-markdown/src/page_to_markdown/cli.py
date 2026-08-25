@@ -22,11 +22,17 @@ from page_to_markdown.style import hint, row, row_group, span, status
 class SourceResult:
 	"""Store one source's report, content, or fetch failure."""
 
+	# Source URL or file path used for extraction.
 	source: str
+	# Confidence report for a successful extraction.
 	report: ConfidenceReport | None
+	# Original HTML returned by the source.
 	raw_content: str | None = None
+	# HTML retained after content selection.
 	selected_content: str | None = None
+	# Markdown converted from the selected HTML.
 	content: str | None = None
+	# Fetch failure when the source could not be read.
 	error: FetchError | None = None
 
 
@@ -69,6 +75,7 @@ def build_parser():
 	return parser
 
 
+# Map confidence verdicts to cli-style result tones.
 _VERDICT_TONES = {
 	"high-confidence": "success",
 	"medium-confidence": "warning",

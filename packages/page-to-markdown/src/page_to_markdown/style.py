@@ -2,15 +2,12 @@
 
 from collections.abc import Callable
 
-from page_to_markdown._cli_style import (
-	CliStyleNotFoundError,
-	hint as render_hint,
-	render as render_generic,
-	row as render_row,
-	span as render_span,
-	status as render_status,
-)
-
+from page_to_markdown._cli_style import CliStyleNotFoundError
+from page_to_markdown._cli_style import hint as render_hint
+from page_to_markdown._cli_style import render as render_generic
+from page_to_markdown._cli_style import row as render_row
+from page_to_markdown._cli_style import span as render_span
+from page_to_markdown._cli_style import status as render_status
 
 # Match cli-style's plain-text result markers when its binary is unavailable.
 _PLAIN_RESULT_MARKERS = {

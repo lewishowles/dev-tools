@@ -39,15 +39,21 @@ VOID_TAGS = frozenset(
 class _DomNode:
 	"""A lightweight DOM node built by _DomBuilder."""
 
+	# Store only the fields needed to represent an extracted DOM node.
 	__slots__ = ("tag", "attrs", "children", "parent", "text")
 
 	def __init__(self, tag, attrs=None, parent=None):
+		"""Initialise a node with optional attributes and parent linkage."""
+		# Element name used by selection and Markdown rendering.
 		self.tag = tag
 		# HTMLParser reports valueless attributes (e.g. `<img alt>`) with a
 		# None value; normalise to "" so every consumer can treat attrs as strings.
 		self.attrs = {name: value or "" for name, value in attrs} if attrs else {}
+		# Child nodes kept in source order.
 		self.children = []
+		# Parent link used while building and inspecting the tree.
 		self.parent = parent
+		# Text stored directly on text nodes.
 		self.text = ""
 
 	def add_text(self, text):
@@ -79,10 +85,13 @@ class _DomBuilder(HTMLParser):
 	"""Builds a lightweight DOM tree from HTML using html.parser."""
 
 	def __init__(self):
+		"""Initialise an empty DOM tree and parser state."""
 		super().__init__(convert_charrefs=True)
+		# Root node for the parsed document.
 		self.root = _DomNode("#root")
+		# Open element stack used to attach parsed nodes.
 		self._stack = [self.root]
-		# Track whether we're inside a stripped element at each depth.
+		# Depth marker for content inside stripped elements.
 		self._strip_depth = 0
 
 	def handle_starttag(self, tag, attrs):

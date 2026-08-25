@@ -1,13 +1,11 @@
 from pathlib import Path
 
 import pytest
-
 from page_to_markdown.cli import main
 from page_to_markdown.convert import convert_to_markdown
 from page_to_markdown.fetch import read_file
 from page_to_markdown.report import build_metadata, build_report
 from page_to_markdown.select import select_content
-
 
 # Keep extraction tests entirely on checked-in fixture files.
 FIXTURES = Path(__file__).parents[1] / "fixtures"

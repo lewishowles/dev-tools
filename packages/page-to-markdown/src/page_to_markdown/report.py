@@ -1,9 +1,9 @@
 """Confidence and metadata reporting for page-to-markdown extraction."""
 
+import re
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-import re
 
 from page_to_markdown.select import (
 	STRIP_TAGS,
@@ -13,13 +13,19 @@ from page_to_markdown.select import (
 	_find_first,
 )
 
-
+# Heading elements used to identify the selected content root.
 HEADING_TAGS = frozenset(["h1", "h2", "h3", "h4", "h5", "h6"])
+# Output length below which the report lowers confidence.
 SHORT_OUTPUT_CHARS = 40
+# Script count that indicates a likely client-rendered app shell.
 SCRIPT_TAG_MINIMUM = 3
+# Link count required before content can be navigation-heavy.
 NAVIGATION_LINK_MINIMUM = 3
+# Share of selected text that links may contain before navigation is suspected.
 NAVIGATION_TEXT_RATIO = 0.6
+# Paragraph text length below which navigation is suspected.
 NAVIGATION_PARAGRAPH_CHARS = 80
+# Whitespace pattern used to normalise report text measurements.
 WHITESPACE_PATTERN = re.compile(r"\s+")
 
 
@@ -27,7 +33,9 @@ class _CountingDomBuilder(_DomBuilder):
 	"""Build the shared lightweight DOM while counting source elements."""
 
 	def __init__(self):
+		"""Initialise the shared DOM builder and its element counter."""
 		super().__init__()
+		# Element counts used to assess removed content and confidence.
 		self.tag_counts = Counter()
 
 	def handle_starttag(self, tag, attrs):
@@ -45,16 +53,25 @@ class _CountingDomBuilder(_DomBuilder):
 class ConfidenceReport:
 	"""Structured confidence report fields, for direct rendering or display."""
 
+	# Original URL or source label shown in the report.
 	source: str
+	# Label for the selected content root.
 	selected_content_root: str
+	# Per-element counts for content removed during selection.
 	removed_elements_summary: str
+	# Total number of elements removed during selection.
 	removed_elements_total: int
+	# Number of links in the selected content.
 	links: int
+	# Number of code blocks in the selected content.
 	code_blocks: int
+	# Overall confidence classification for the extraction.
 	verdict: str
+	# Explanations for any reduced-confidence classification.
 	reasons: list[str] = field(default_factory=list)
 
 	def __str__(self) -> str:
+		"""Render the report as line-oriented text."""
 		lines = [
 			f"source: {self.source}",
 			f"selected-content-root: {self.selected_content_root}",
