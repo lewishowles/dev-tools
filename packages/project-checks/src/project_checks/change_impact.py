@@ -12,8 +12,10 @@ from pathlib import Path
 from typing import Any
 
 
+# Use the current directory when no project path is provided.
 DEFAULT_PROJECT_DIR = Path.cwd()
 
+# Map internal category names to the labels shown in reports.
 CATEGORY_LABELS = {
 	"config": "Config",
 	"docs": "Docs",
@@ -26,6 +28,7 @@ CATEGORY_LABELS = {
 	"other": "Other",
 }
 
+# Keep report groups in a stable, review-friendly order.
 CATEGORY_ORDER = [
 	"source",
 	"tests",
@@ -38,6 +41,7 @@ CATEGORY_ORDER = [
 	"other",
 ]
 
+# Treat these paths as generated output rather than ordinary source changes.
 GENERATED_PATHS = [
 	"dist/",
 	"dist-docs/",
@@ -52,6 +56,7 @@ GENERATED_PATHS = [
 	"docs/skills.md",
 ]
 
+# Treat these filenames as repository configuration.
 CONFIG_FILENAMES = {
 	".editorconfig",
 	".eslintrc",
@@ -65,7 +70,9 @@ CONFIG_FILENAMES = {
 	"tsconfig.json",
 }
 
+# Recognise documentation file types used by the path classifier.
 DOC_EXTENSIONS = {".md", ".mdx", ".rst", ".txt"}
+# Recognise source file types used by the path classifier.
 SOURCE_EXTENSIONS = {
 	".css",
 	".go",
@@ -79,11 +86,17 @@ SOURCE_EXTENSIONS = {
 	".tsx",
 	".vue",
 }
+# Recognise path markers used to identify test files.
 TEST_MARKERS = ["/test/", "/tests/", "/__tests__/", ".test.", ".spec.", "_test."]
 
 
 @dataclass
 class ChangedPath:
+	"""Describe one changed path for impact reporting.
+
+	The record stores the Git status, repository-relative path, and category used by reports.
+	"""
+
 	status: str
 	path: str
 	category: str
@@ -91,6 +104,11 @@ class ChangedPath:
 
 @dataclass
 class RiskSignal:
+	"""Describe a risk signal included in an impact report.
+
+	The record stores a stable code, message, affected path, and severity for reporting.
+	"""
+
 	code: str
 	message: str
 	path: str

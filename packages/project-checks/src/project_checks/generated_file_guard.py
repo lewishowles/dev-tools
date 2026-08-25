@@ -13,9 +13,12 @@ from typing import Any
 
 from project_checks import style
 
+# Use the current directory when no project path is provided.
 DEFAULT_PROJECT_DIR = Path.cwd()
+# Use this filename when no generated-file guard configuration is specified.
 DEFAULT_CONFIG_FILENAME = "generated-file-guard.config.json"
 
+# Check these conventional directories for generated output.
 COMMON_GENERATED_PATHS = [
 	"dist",
 	"dist-docs",
@@ -28,6 +31,11 @@ COMMON_GENERATED_PATHS = [
 
 @dataclass
 class Finding:
+	"""Describe a generated-file guard finding.
+
+	The record stores the finding code, message, affected path, and source rule.
+	"""
+
 	code: str
 	message: str
 	path: str
@@ -138,6 +146,11 @@ def source_hint(sources: list[str]) -> str:
 
 
 def _load_config(config_path: Path) -> dict[str, Any]:
+	"""Load optional JSON configuration and validate its object shape.
+
+	Return an empty dictionary when no file exists, and raise `ValueError` for invalid JSON or non-object content.
+	"""
+
 	if not config_path.exists():
 		return {}
 
