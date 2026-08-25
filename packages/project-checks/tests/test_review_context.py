@@ -4,7 +4,6 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
-
 from project_checks import change_impact, repo_context, review_context
 
 

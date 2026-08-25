@@ -12,10 +12,13 @@ from project_checks import change_impact, repo_context
 # Default target for --project-dir when the flag is omitted.
 DEFAULT_PROJECT_DIR = Path.cwd()
 
+# Maximum number of entries rendered in each bounded section.
 MAX_SECTION_ENTRIES = 20
 
+# Maximum length of one-line task and overview text before rendering.
 MAX_OVERVIEW_LENGTH = 160
 
+# Maximum number of task front matter lines read from a planning file.
 MAX_FRONT_MATTER_LINES = 200
 
 

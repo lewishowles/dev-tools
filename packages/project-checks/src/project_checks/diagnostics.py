@@ -56,11 +56,13 @@ Examples:
   project-checks --json --list
 """
 
+# Package scripts that represent unit-test checks.
 UNIT_TEST_SCRIPT_NAMES = {
 	"test:unit",
 	"test:unit:run",
 }
 
+# Explicitly allowed conservative diagnostic script names.
 SAFE_SCRIPT_NAMES = {
 	"attw",
 	"check",
@@ -76,6 +78,7 @@ SAFE_SCRIPT_NAMES = {
 	"validate",
 }
 
+# Omitted script names that are broad, mutating, or unsafe to run automatically.
 SKIPPED_SCRIPT_NAMES = {
 	"build",
 	"dev",
@@ -91,6 +94,7 @@ SKIPPED_SCRIPT_NAMES = {
 	"test:e2e",
 }
 
+# Command fragments that identify scripts able to change project state.
 MUTATING_COMMAND_HINTS = (
 	"--fix",
 	"--write",
@@ -100,6 +104,7 @@ MUTATING_COMMAND_HINTS = (
 	"deploy",
 	"migrate",
 )
+# Terminal colour escape sequences removed from captured output.
 ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
 
 # Directories never worth walking when locating an Xcode project.
@@ -166,6 +171,8 @@ XCRESULT_FAILURE_MARKERS = (
 
 @dataclass
 class Check:
+	"""Describe one check's name, command, reason, and timeout and test-target options."""
+
 	name: str
 	command: list[str]
 	reason: str
@@ -177,6 +184,8 @@ class Check:
 
 @dataclass
 class Result:
+	"""Store one check's status, exit code, log path, and compact summary."""
+
 	name: str
 	command: list[str]
 	status: str
@@ -244,10 +253,6 @@ def scan_xcode_layout(project_dir: Path) -> tuple[list[Path], list[Path], list[s
 	return projects, workspaces, sorted(ui_targets)
 
 
-# @param  {str}  line
-#     Source line from project.pbxproj.
-# @param  {str}  key
-#     PBX key to read.
 def pbx_assignment_value(line: str, key: str) -> str | None:
 	"""Extract a PBX assignment value from a project file line."""
 	match = re.search(rf"\b{re.escape(key)}\s*=\s*(.*?);", line)
@@ -260,8 +265,6 @@ def pbx_assignment_value(line: str, key: str) -> str | None:
 	return value
 
 
-# @param  {str}  line
-#     Object header line from project.pbxproj.
 def pbx_reference_name(line: str) -> str | None:
 	"""Extract the display name from a PBX object reference comment."""
 	match = re.search(r"/\*\s*(.*?)\s*\*/", line)
@@ -270,16 +273,12 @@ def pbx_reference_name(line: str) -> str | None:
 	return None
 
 
-# @param  {str}  name
-#     Xcode target name.
 def check_name_slug(name: str) -> str:
 	"""Convert an Xcode target name into a diagnostics-safe slug."""
 	slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 	return slug or "target"
 
 
-# @param  {list[Path]}  projects
-#     Xcode project bundles to inspect.
 def detect_xcode_tool_targets(projects: list[Path]) -> list[str]:
 	"""Find Xcode command-line tool targets declared in project files."""
 	targets: set[str] = set()
@@ -328,16 +327,6 @@ def detect_xcode_tool_targets(projects: list[Path]) -> list[str]:
 	return sorted(targets)
 
 
-# Adds command-line tool target build checks when Xcode declares tool targets.
-#
-# @param  {list[Check]}  checks
-#     Check list to append to.
-# @param  {list[str]}  base_command
-#     xcodebuild command prefix for the selected container.
-# @param  {list[str]}  tool_targets
-#     Xcode command-line tool target names.
-# @param  {Path}  container
-#     Xcode project or workspace container to resolve shared schemes against.
 def append_xcode_tool_checks(
 	checks: list[Check],
 	base_command: list[str],
@@ -975,6 +964,8 @@ def summarise_for(check: Check, output: str) -> list[str]:
 
 
 def _iter_nodes(node: Any):
+	"""Recursively yield dictionary nodes from a JSON-like value."""
+
 	if isinstance(node, dict):
 		yield node
 		for value in node.values():
@@ -985,6 +976,8 @@ def _iter_nodes(node: Any):
 
 
 def _xcresulttool_json(args: list[str]) -> Any:
+	"""Run xcresulttool and return decoded JSON, or None when it fails."""
+
 	try:
 		completed = subprocess.run(
 			["xcrun", "xcresulttool", *args],
