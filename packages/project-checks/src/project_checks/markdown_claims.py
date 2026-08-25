@@ -60,9 +60,17 @@ NON_CURRENT_MARKERS = frozenset({"historical", "planned"})
 
 @dataclass
 class Issue:
-	file: str  # repo-relative path of the markdown file
-	claim: str  # the path string as written in the source
-	kind: str  # missing_path
+	"""Record one missing Markdown path claim.
+
+	Attributes:
+		file: Repository-relative path of the Markdown file.
+		claim: Path string as written in the source.
+		kind: Issue kind, currently ``missing_path``.
+	"""
+
+	file: str
+	claim: str
+	kind: str
 
 
 def collect_files(
@@ -112,12 +120,17 @@ def resolve_claim_matches(path: Path) -> list[Path]:
 	return sorted(Path(match) for match in glob.glob(path_text, recursive=True))
 
 
-# @param  {str}   text
-#     Markdown source with fences already stripped.
-# @param  {Path}  source_file
-#     Absolute path of the file being scanned; used to resolve relative targets.
 def extract_link_claims(text: str, source_file: Path) -> list[tuple[str, Path]]:
-	"""Extract relative Markdown link claims and their resolved paths."""
+	"""Extract relative Markdown link claims and their resolved paths.
+
+	Args:
+		text: Markdown source with fences already stripped.
+		source_file: Absolute path of the file being scanned, used to resolve
+			relative targets.
+
+	Returns:
+		Pairs containing each claimed target and its resolved path.
+	"""
 	claims = []
 	for line in text.splitlines():
 		if is_non_current(extract_markers(line)):
@@ -134,21 +147,23 @@ def extract_link_claims(text: str, source_file: Path) -> list[tuple[str, Path]]:
 	return claims
 
 
-# Paths are resolved from the repo root. Trailing arguments are stripped so
-# `scripts/foo.sh --flag` resolves to scripts/foo.sh.
-#
-# @param  {str}        text
-#     Markdown source with fences already stripped.
-# @param  {Path}       project_dir
-#     Project directory used to resolve repo-root-relative paths.
-# @param  {tuple[str]} prefixes
-#     Only inline code starting with one of these prefixes is included.
 def extract_inline_path_claims(
 	text: str,
 	project_dir: Path,
 	prefixes: tuple[str, ...],
 ) -> list[tuple[str, Path]]:
-	"""Extract current inline-code path claims and their resolved paths."""
+	"""Extract current inline-code path claims and their resolved paths.
+
+	Inline claims may include command arguments; only the path token is resolved.
+
+	Args:
+		text: Markdown source to scan.
+		project_dir: Project directory used to resolve repo-root-relative paths.
+		prefixes: Prefixes that identify inline-code path claims.
+
+	Returns:
+		Pairs containing each claimed path and its resolved path.
+	"""
 	claims = []
 	for line in strip_fences(text).splitlines():
 		markers = extract_markers(line)
@@ -169,6 +184,11 @@ def extract_inline_path_claims(
 
 
 def _load_config(config_path: Path) -> dict[str, object]:
+	"""Read optional JSON configuration and return its mapping.
+
+	Return an empty mapping when the file is absent and raise ``ValueError`` for
+	invalid JSON or a non-object configuration.
+	"""
 	if not config_path.exists():
 		return {}
 
@@ -186,6 +206,11 @@ def _load_config(config_path: Path) -> dict[str, object]:
 
 
 def _load_config_strings(config_path: Path, key: str) -> list[str]:
+	"""Read one configured key as a list of strings.
+
+	Return an empty list when the key is absent and raise ``ValueError`` when its
+	value is not a list of strings.
+	"""
 	config = _load_config(config_path)
 	values = config.get(key, [])
 	if not isinstance(values, list) or not all(
@@ -235,6 +260,7 @@ def check_paths(
 
 
 def _print_issues(issues: list[Issue]) -> None:
+	"""Print each issue using the CLI-styled row format."""
 	for issue in issues:
 		print(style.row(issue.file, f"missing path '{issue.claim}'", "failed"))
 

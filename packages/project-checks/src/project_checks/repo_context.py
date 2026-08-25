@@ -326,6 +326,11 @@ def build_context(project_dir: Path) -> dict[str, Any]:
 
 
 def _drift_score(repo_dir: Path) -> str:
+	"""Return the repo drift score when its script and output are usable.
+
+	Return ``n/a`` when the script is absent or its execution or output cannot be
+	used.
+	"""
 	drift_script = repo_dir / "scripts" / "repo-drift.py"
 	if not drift_script.exists():
 		return "n/a"
