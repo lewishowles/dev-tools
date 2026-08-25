@@ -1,5 +1,6 @@
 """Read from and write to the macOS clipboard via pbpaste and pbcopy."""
 
+import re
 import shutil
 import subprocess
 import sys
@@ -7,6 +8,11 @@ import sys
 
 class ClipboardError(RuntimeError):
 	"""Report that macOS clipboard access is unavailable or failed."""
+
+
+def strip_clipboard_gutter(selection: str) -> str:
+	"""Remove bat and delta line gutters without changing source indentation."""
+	return re.sub(r"(?m)^ *\d+ [-+~ ] ?", "", selection)
 
 
 def read_clipboard() -> str:

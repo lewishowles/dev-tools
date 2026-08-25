@@ -11,6 +11,7 @@ from review_feedback.clipboard import (
 	ClipboardError,
 	copy_to_clipboard,
 	read_clipboard,
+	strip_clipboard_gutter,
 )
 from review_feedback.draft import (
 	Draft,
@@ -128,6 +129,7 @@ def _add() -> int:
 	"""Capture clipboard text, resolve its locations, and append entries."""
 	store = resolve_store()
 	selection = read_clipboard()
+	selection = strip_clipboard_gutter(selection)
 	locations = resolve_selection(selection, store.root)
 	comment = _prompt_comment()
 	fingerprint = repository_fingerprint(store.root)

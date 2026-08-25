@@ -11,6 +11,31 @@ def enable_macos_clipboard(monkeypatch: pytest.MonkeyPatch, command: str) -> Non
 	monkeypatch.setattr(clipboard.shutil, "which", lambda _: f"/usr/bin/{command}")
 
 
+@pytest.mark.parametrize(
+	("selection", "expected"),
+	[
+		(
+			" 808 +       </p>\n"
+			" 809 + \n"
+			" 806   line 806\n"
+			" 807 - old line\n"
+			" 810 ~ changed line\n"
+			" 811   \n",
+			"      </p>\n\nline 806\nold line\nchanged line\n\n",
+		),
+		("plain text\n  indented source\n", "plain text\n  indented source\n"),
+		(
+			" 808 + added\nplain source\n 810 -       removed\n",
+			"added\nplain source\n      removed\n",
+		),
+	],
+)
+def test_strip_clipboard_gutter(selection: str, expected: str) -> None:
+	result = clipboard.strip_clipboard_gutter(selection)
+
+	assert result == expected
+
+
 def test_read_clipboard_rejects_non_macos(monkeypatch: pytest.MonkeyPatch) -> None:
 	monkeypatch.setattr(clipboard.sys, "platform", "linux")
 
