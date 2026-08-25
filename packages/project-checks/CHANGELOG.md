@@ -4,11 +4,26 @@ All notable changes to `project-checks` are documented here. The format is based
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-25
+
+### Added
+
+- Added `lint:python` and `format:python` diagnostics for Python projects configured with Ruff.
+- Added bounded project review context that combines the active task, repository summary, changes, risks, and suggested checks in Markdown or JSON output.
+- Added the `project-checks-review-context` command for printing focused review context for a project.
+
+### Changed
+
+- Limited detected Vitest checks to two workers by default, with `--test-workers` available for a custom limit or the runner's default.
+- Routed diagnostics, generated-file, and Markdown claims output through the shared `cli-style` adapter, with a plain-text fallback when the adapter is unavailable.
+
 ### Fixed
 
 - Checked Markdown path references separately from script commands, with explicit planned and historical markers.
 - Accepted source-location suffixes and matched globs in current path claims.
 - Removed command checks inferred from Markdown examples; missing scripts remain covered as path references.
+- Resolved Xcode CLI build checks through a matching shared scheme when one is available, falling back to the target name.
+- Prevented targeted pytest diagnostics from passing non-Python test paths to pytest.
 
 ## [0.2.4] - 2026-08-04
 

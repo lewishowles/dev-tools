@@ -4,6 +4,13 @@ All notable changes to `@lewishowles/pkg-checks` are documented here. The format
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-08-25
+
+### Fixed
+
+- Kept the CLI's output formatting aligned with the latest shared `cli-style` release.
+- Sent help text and successful check results to standard output so callers can capture normal CLI output separately from errors.
+
 ## [0.2.3] - 2026-08-04
 
 ### Changed

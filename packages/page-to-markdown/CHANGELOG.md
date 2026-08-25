@@ -4,6 +4,12 @@ All notable changes to `page-to-markdown` are documented here. The format is bas
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-08-25
+
+### Fixed
+
+- Kept long paths on one line in CLI output so they remain readable and copyable.
+
 ## [0.1.1] - 2026-08-04
 
 ### Fixed
@@ -17,4 +23,3 @@ All notable changes to `page-to-markdown` are documented here. The format is bas
 - Added URL, file and stdin input modes for converting selected page content to compact Markdown.
 - Added confidence reporting, fixture-based extraction tests and optional clipboard output.
 - Added `cli-style` output formatting and support for combining multiple sources.
-
