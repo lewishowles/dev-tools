@@ -1,3 +1,5 @@
+import pytest
+
 from review_feedback.draft import Draft, DraftEntry
 from review_feedback.render import render_packet
 
@@ -7,6 +9,7 @@ def make_entry(
 	path: str,
 	side: str,
 	comment: str,
+	selection_text: str = "",
 ) -> DraftEntry:
 	"""Build a draft entry with stable coordinates for renderer tests."""
 	return DraftEntry(
@@ -20,6 +23,7 @@ def make_entry(
 		selection_hash="selection-hash",
 		repository_fingerprint="repository-fingerprint",
 		comment=comment,
+		selection_text=selection_text,
 		old_path="old_name.py",
 		new_path="new_name.py",
 	)
@@ -51,6 +55,80 @@ def test_render_packet_keeps_multiline_comments_plain() -> None:
 	packet = render_packet(Draft([entry]))
 
 	assert packet == ("### 4. `review.py:2:3-4:8`\n\nFirst line\nSecond line\n")
+
+
+def test_render_packet_includes_stored_selection_before_comment() -> None:
+	entry = make_entry(
+		1,
+		"review.py",
+		"current",
+		"Check this code.",
+		"def review():\n\treturn True",
+	)
+
+	packet = render_packet(Draft([entry]))
+
+	assert packet == (
+		"### 1. `review.py:2:3-4:8`\n\n"
+		"```py\n"
+		"def review():\n"
+		"\treturn True\n"
+		"```\n\n"
+		"Check this code.\n"
+	)
+
+
+@pytest.mark.parametrize(
+	"line_break",
+	["\n", "\r", "\r\n"],
+	ids=["LF", "CR", "CRLF"],
+)
+def test_render_packet_preserves_trailing_selection_line_break(line_break: str) -> None:
+	selection = f"def review():{line_break}\treturn True{line_break}"
+	entry = make_entry(1, "review.py", "current", "Check this code.", selection)
+
+	packet = render_packet(Draft([entry]))
+
+	assert packet == (
+		f"### 1. `review.py:2:3-4:8`\n\n```py\n{selection}```\n\nCheck this code.\n"
+	)
+
+
+def test_render_packet_uses_a_longer_fence_for_embedded_backticks() -> None:
+	selection = "```python\nvalue = 1\n```"
+	entry = make_entry(2, "review.py", "removed", "Check the old code.", selection)
+
+	packet = render_packet(Draft([entry]))
+
+	assert packet == (
+		"### 2. `review.py:2:3-4:8` (removed at HEAD)\n\n"
+		"````py\n"
+		"```python\n"
+		"value = 1\n"
+		"```\n"
+		"````\n\n"
+		"Check the old code.\n"
+	)
+
+
+def test_render_packet_labels_extensionless_paths_as_text() -> None:
+	entry = make_entry(5, "README", "current", "Check this text.", "Plain text")
+
+	packet = render_packet(Draft([entry]))
+
+	assert packet == (
+		"### 5. `README:2:3-4:8`\n\n```text\nPlain text\n```\n\nCheck this text.\n"
+	)
+
+
+def test_render_packet_lowercases_path_extension_label() -> None:
+	entry = make_entry(6, "review.Py", "current", "Check this code.", "return True")
+
+	packet = render_packet(Draft([entry]))
+
+	assert packet == (
+		"### 6. `review.Py:2:3-4:8`\n\n```py\nreturn True\n```\n\nCheck this code.\n"
+	)
 
 
 def test_render_packet_returns_empty_body_for_empty_draft() -> None:
