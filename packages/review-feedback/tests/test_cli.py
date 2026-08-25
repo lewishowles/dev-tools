@@ -1,10 +1,11 @@
+import io
 from pathlib import Path
 import subprocess
 
 import pytest
 
 from review_feedback import cli
-from review_feedback.draft import resolve_store
+from review_feedback.draft import load_active, resolve_store
 
 
 def git(repo: Path, *arguments: str) -> str:
@@ -42,7 +43,8 @@ def add_entry(
 ) -> None:
 	monkeypatch.chdir(repo)
 	monkeypatch.setattr(cli, "read_clipboard", lambda: selection)
-	monkeypatch.setattr("builtins.input", lambda _: comment)
+	monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
+	monkeypatch.setattr(cli, "prompt", lambda _: comment)
 	assert cli.main(["add"]) == 0
 
 
@@ -69,7 +71,8 @@ def test_add_creates_an_entry_for_each_matching_location(
 	)
 	monkeypatch.chdir(repo)
 	monkeypatch.setattr(cli, "read_clipboard", lambda: "new selection")
-	monkeypatch.setattr("builtins.input", lambda _: "Review both lines")
+	monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
+	monkeypatch.setattr(cli, "prompt", lambda _: "Review both lines")
 
 	assert cli.main(["add"]) == 0
 	output = capsys.readouterr().out
@@ -90,11 +93,88 @@ def test_add_resolves_selection_before_prompting_for_comment(
 	def fail_prompt(_: str) -> str:
 		pytest.fail("comment should not be prompted for an invalid selection")
 
-	monkeypatch.setattr("builtins.input", fail_prompt)
+	monkeypatch.setattr(cli, "prompt", fail_prompt)
 
 	assert cli.main(["add"]) == 2
 
 	assert "selection was not found" in capsys.readouterr().err
+
+
+def test_add_rejects_an_empty_comment_without_saving_a_draft(
+	tmp_path: Path,
+	monkeypatch: pytest.MonkeyPatch,
+	capsys: pytest.CaptureFixture[str],
+) -> None:
+	repo = make_repo(tmp_path)
+	prepare_selection(repo)
+	monkeypatch.chdir(repo)
+	monkeypatch.setattr(cli, "read_clipboard", lambda: "new selection")
+	monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
+	monkeypatch.setattr(cli, "prompt", lambda _: "")
+
+	assert cli.main(["add"]) == 2
+
+	assert not resolve_store(repo).active_path.exists()
+	assert "comment cannot be empty" in capsys.readouterr().err
+
+
+def test_add_reports_an_eof_without_saving_a_draft(
+	tmp_path: Path,
+	monkeypatch: pytest.MonkeyPatch,
+	capsys: pytest.CaptureFixture[str],
+) -> None:
+	repo = make_repo(tmp_path)
+	prepare_selection(repo)
+	monkeypatch.chdir(repo)
+	monkeypatch.setattr(cli, "read_clipboard", lambda: "new selection")
+	monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
+
+	def raise_eof(_: str) -> str:
+		raise EOFError
+
+	monkeypatch.setattr(cli, "prompt", raise_eof)
+
+	assert cli.main(["add"]) == 2
+
+	assert not resolve_store(repo).active_path.exists()
+	assert "comment prompt closed" in capsys.readouterr().err
+
+
+def test_add_preserves_ctrl_c_cancellation_without_saving_a_draft(
+	tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+	repo = make_repo(tmp_path)
+	prepare_selection(repo)
+	monkeypatch.chdir(repo)
+	monkeypatch.setattr(cli, "read_clipboard", lambda: "new selection")
+	monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
+
+	def raise_keyboard_interrupt(_: str) -> str:
+		raise KeyboardInterrupt
+
+	monkeypatch.setattr(cli, "prompt", raise_keyboard_interrupt)
+
+	with pytest.raises(KeyboardInterrupt):
+		cli.main(["add"])
+
+	assert not resolve_store(repo).active_path.exists()
+
+
+def test_add_accepts_a_comment_from_redirected_stdin(
+	tmp_path: Path,
+	monkeypatch: pytest.MonkeyPatch,
+) -> None:
+	repo = make_repo(tmp_path)
+	prepare_selection(repo)
+	monkeypatch.chdir(repo)
+	monkeypatch.setattr(cli, "read_clipboard", lambda: "new selection")
+	monkeypatch.setattr(cli.sys, "stdin", io.StringIO("Review from stdin\n"))
+
+	assert cli.main(["add"]) == 0
+
+	draft = load_active(resolve_store(repo))
+	assert draft is not None
+	assert draft.entries[0].comment == "Review from stdin"
 
 
 def test_remove_and_show_report_success_in_plain_text(

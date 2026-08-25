@@ -6,6 +6,8 @@ import argparse
 import sys
 from typing import TextIO
 
+from prompt_toolkit import prompt
+
 from review_feedback import style
 from review_feedback.clipboard import (
 	ClipboardError,
@@ -226,7 +228,10 @@ def _clear() -> int:
 def _prompt_comment() -> str:
 	"""Prompt for one non-empty review comment."""
 	try:
-		comment = input("Comment: ")
+		if sys.stdin.isatty():
+			comment = prompt("Comment: ")
+		else:
+			comment = input("Comment: ")
 	except EOFError as error:
 		raise CliError(
 			"comment prompt closed; run `review-feedback add` and enter one comment"
