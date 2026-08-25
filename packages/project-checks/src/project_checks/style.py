@@ -4,13 +4,22 @@ from collections.abc import Callable
 
 from project_checks._cli_style import (
 	CliStyleNotFoundError,
+)
+from project_checks._cli_style import (
 	hint as render_hint,
+)
+from project_checks._cli_style import (
 	render as render_generic,
+)
+from project_checks._cli_style import (
 	row as render_row,
+)
+from project_checks._cli_style import (
 	span as render_span,
+)
+from project_checks._cli_style import (
 	status as render_status,
 )
-
 
 # Match cli-style's plain-text result markers when its binary is unavailable.
 _PLAIN_RESULT_MARKERS = {

@@ -2,11 +2,10 @@ import json
 from pathlib import Path
 
 import pytest
-
 from project_checks.markdown_claims import (
 	DEFAULT_REPO_PATH_PREFIXES,
-	Issue,
 	MARKDOWN_SCAN_IGNORE_DIRS,
+	Issue,
 	check_paths,
 	collect_files,
 	load_ignore_dirs,

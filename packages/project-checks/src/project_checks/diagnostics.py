@@ -20,7 +20,6 @@ from typing import Any
 
 from project_checks import style
 
-
 DESCRIPTION = """Run conservative project diagnostics.
 
 Default mode lists available checks without running them. Use --check to run a

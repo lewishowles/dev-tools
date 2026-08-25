@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-
 # Use the current directory when no project path is provided.
 DEFAULT_PROJECT_DIR = Path.cwd()
 

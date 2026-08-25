@@ -8,7 +8,6 @@ from typing import Any
 
 from project_checks import change_impact, repo_context
 
-
 # Default target for --project-dir when the flag is omitted.
 DEFAULT_PROJECT_DIR = Path.cwd()
 
