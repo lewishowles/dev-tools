@@ -66,7 +66,7 @@ friction resolve rule-ignored "skipped the review gate before committing" --refe
 Resolved: rule-ignored — skipped the review gate before committing
 ```
 
-This records a resolution without adding a new event. `friction summary` then hides any event with that exact category and detail from the resolution's timestamp onwards; events recorded before the resolution still show up, so the history isn't silently rewritten.
+This records a resolution without adding a new event. `friction summary` hides events with that exact category and detail at or before the resolution timestamp. Later recurrences appear again, so reviewers can see whether the resolution held.
 
 ## Migrating an old TSV log
 

@@ -172,9 +172,7 @@ def test_import_dry_run_does_not_write_events_or_provenance(tmp_path, capsys) ->
 		)
 
 
-def test_summary_groups_active_events_and_suppresses_events_after_resolution(
-	tmp_path, capsys
-) -> None:
+def test_summary_hides_events_at_or_before_resolution(tmp_path, capsys) -> None:
 	database_path = tmp_path / "friction.db"
 	with Database(database_path).transaction() as connection:
 		connection.executemany(
@@ -194,6 +192,13 @@ def test_summary_groups_active_events_and_suppresses_events_after_resolution(
 				),
 				(
 					"2026-09-03T09:30:00+00:00",
+					"rule-ignored",
+					"/workspace",
+					"skipped review",
+					"manual",
+				),
+				(
+					"2026-09-03T10:00:00+00:00",
 					"rule-ignored",
 					"/workspace",
 					"skipped review",
@@ -238,7 +243,7 @@ def test_summary_groups_active_events_and_suppresses_events_after_resolution(
 		"ok": True,
 		"data": [
 			{
-				"count": 2,
+				"count": 1,
 				"category": "rule-ignored",
 				"cwd": "/workspace",
 				"detail": "skipped review",
@@ -249,6 +254,61 @@ def test_summary_groups_active_events_and_suppresses_events_after_resolution(
 				"cwd": "/workspace",
 				"detail": "skipped investigation",
 			},
+		],
+	}
+
+
+def test_summary_shows_event_logged_after_resolution(
+	tmp_path, capsys, monkeypatch
+) -> None:
+	database_path = tmp_path / "friction.db"
+	monkeypatch.chdir(tmp_path)
+
+	assert (
+		cli.main(
+			[
+				"resolve",
+				"rule-ignored",
+				"skipped review",
+				"--reference",
+				"fix: require review",
+				"--database",
+				str(database_path),
+			]
+		)
+		== 0
+	)
+	capsys.readouterr()
+
+	assert (
+		cli.main(
+			[
+				"add",
+				"rule-ignored",
+				"skipped review",
+				"--database",
+				str(database_path),
+			]
+		)
+		== 0
+	)
+	capsys.readouterr()
+
+	exit_code = cli.main(["summary", "--database", str(database_path), "--json"])
+	captured = capsys.readouterr()
+	response = json.loads(captured.out)
+
+	assert exit_code == 0
+	assert captured.err == ""
+	assert response == {
+		"ok": True,
+		"data": [
+			{
+				"count": 1,
+				"category": "rule-ignored",
+				"cwd": str(tmp_path),
+				"detail": "skipped review",
+			}
 		],
 	}
 

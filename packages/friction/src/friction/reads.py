@@ -22,7 +22,7 @@ def summary(
 			FROM resolutions
 			WHERE resolutions.category = events.category
 				AND resolutions.pattern = events.detail
-				AND resolutions.resolved_at_utc <= events.timestamp_utc
+				AND resolutions.resolved_at_utc >= events.timestamp_utc
 		)
 		"""
 	]
