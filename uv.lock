@@ -6,6 +6,7 @@ requires-python = ">=3.11"
 members = [
     "agents-progress",
     "dev-tools",
+    "friction",
     "image-for-agent",
     "page-to-markdown",
     "project-checks",
@@ -49,6 +50,10 @@ dev = [
     { name = "pytest" },
     { name = "ruff", specifier = ">=0.15.22" },
 ]
+
+[[package]]
+name = "friction"
+source = { editable = "packages/friction" }
 
 [[package]]
 name = "image-for-agent"
