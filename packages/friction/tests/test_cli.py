@@ -379,6 +379,294 @@ def test_summary_excludes_automated_categories_until_their_flags_are_passed(
 	]
 
 
+def test_list_returns_the_raw_event_envelope_in_timestamp_order(
+	tmp_path, capsys
+) -> None:
+	database_path = tmp_path / "friction.db"
+	with Database(database_path).transaction() as connection:
+		connection.executemany(
+			"""
+			INSERT INTO events (
+				timestamp_utc, category, cwd, detail, source,
+				tool_name, discriminator, error
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			""",
+			(
+				(
+					"2026-09-03T11:00:00+00:00",
+					"rule-ignored",
+					"/workspace",
+					"second event",
+					"manual",
+					None,
+					None,
+					None,
+				),
+				(
+					"2026-09-03T10:00:00+00:00",
+					"wrong-approach",
+					"/workspace",
+					"first event",
+					"claude-hook",
+					"Bash",
+					"run checks",
+					"failed",
+				),
+			),
+		)
+
+	exit_code = cli.main(
+		[
+			"list",
+			"--include-check-fails",
+			"--include-tool-errors",
+			"--database",
+			str(database_path),
+			"--json",
+		]
+	)
+	captured = capsys.readouterr()
+
+	assert exit_code == 0
+	assert captured.err == ""
+	assert json.loads(captured.out) == {
+		"ok": True,
+		"data": [
+			{
+				"timestamp_utc": "2026-09-03T10:00:00+00:00",
+				"category": "wrong-approach",
+				"cwd": "/workspace",
+				"detail": "first event",
+				"source": "claude-hook",
+				"tool_name": "Bash",
+				"discriminator": "run checks",
+				"error": "failed",
+			},
+			{
+				"timestamp_utc": "2026-09-03T11:00:00+00:00",
+				"category": "rule-ignored",
+				"cwd": "/workspace",
+				"detail": "second event",
+				"source": "manual",
+				"tool_name": None,
+				"discriminator": None,
+				"error": None,
+			},
+		],
+	}
+
+
+def test_list_uses_the_same_category_filters_as_summary(tmp_path, capsys) -> None:
+	database_path = tmp_path / "friction.db"
+	with Database(database_path).transaction() as connection:
+		connection.executemany(
+			"""
+			INSERT INTO events (
+				timestamp_utc, category, cwd, detail, source,
+				tool_name, discriminator, error
+			) VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL)
+			""",
+			(
+				("2026-09-03", "rule-ignored", "/workspace", "manual", "manual"),
+				("2026-09-03", "check-fail", "/workspace", "check", "manual"),
+				("2026-09-03", "tool-error", "/workspace", "tool", "manual"),
+			),
+		)
+
+	assert cli.main(["summary", "--database", str(database_path), "--json"]) == 0
+	summary_categories = [
+		item["category"] for item in json.loads(capsys.readouterr().out)["data"]
+	]
+	assert cli.main(["list", "--database", str(database_path), "--json"]) == 0
+	list_categories = [
+		item["category"] for item in json.loads(capsys.readouterr().out)["data"]
+	]
+
+	assert set(list_categories) == set(summary_categories) == {"rule-ignored"}
+
+	arguments = [
+		"--include-check-fails",
+		"--include-tool-errors",
+		"--database",
+		str(database_path),
+		"--json",
+	]
+	assert cli.main(["summary", *arguments]) == 0
+	summary_categories = [
+		item["category"] for item in json.loads(capsys.readouterr().out)["data"]
+	]
+	assert cli.main(["list", *arguments]) == 0
+	list_categories = [
+		item["category"] for item in json.loads(capsys.readouterr().out)["data"]
+	]
+
+	assert (
+		set(list_categories)
+		== set(summary_categories)
+		== {
+			"check-fail",
+			"rule-ignored",
+			"tool-error",
+		}
+	)
+
+
+def test_list_filters_events_with_inclusive_date_boundaries(tmp_path, capsys) -> None:
+	database_path = tmp_path / "friction.db"
+	with Database(database_path).transaction() as connection:
+		connection.executemany(
+			"""
+			INSERT INTO events (
+				timestamp_utc, category, cwd, detail, source,
+				tool_name, discriminator, error
+			) VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL)
+			""",
+			(
+				(
+					"2026-09-02T23:59:59+00:00",
+					"rule-ignored",
+					"/workspace",
+					"before",
+					"manual",
+				),
+				(
+					"2026-09-03T00:00:00+00:00",
+					"rule-ignored",
+					"/workspace",
+					"start",
+					"manual",
+				),
+				(
+					"2026-09-03T23:59:59+00:00",
+					"rule-ignored",
+					"/workspace",
+					"end",
+					"manual",
+				),
+				(
+					"2026-09-04T00:00:00+00:00",
+					"rule-ignored",
+					"/workspace",
+					"after",
+					"manual",
+				),
+			),
+		)
+
+	exit_code = cli.main(
+		[
+			"list",
+			"--since",
+			"2026-09-03",
+			"--until",
+			"2026-09-03",
+			"--database",
+			str(database_path),
+			"--json",
+		]
+	)
+	captured = capsys.readouterr()
+
+	assert exit_code == 0
+	assert captured.err == ""
+	assert [item["detail"] for item in json.loads(captured.out)["data"]] == [
+		"start",
+		"end",
+	]
+
+
+def test_list_returns_events_hidden_by_a_resolution(tmp_path, capsys) -> None:
+	database_path = tmp_path / "friction.db"
+	with Database(database_path).transaction() as connection:
+		connection.execute(
+			"""
+			INSERT INTO events (
+				timestamp_utc, category, cwd, detail, source,
+				tool_name, discriminator, error
+			) VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL)
+			""",
+			(
+				"2026-09-03T09:00:00+00:00",
+				"rule-ignored",
+				"/workspace",
+				"resolved",
+				"manual",
+			),
+		)
+		connection.execute(
+			"""
+			INSERT INTO resolutions (category, pattern, resolved_at_utc, reference)
+			VALUES (?, ?, ?, ?)
+			""",
+			("rule-ignored", "resolved", "2026-09-03T10:00:00+00:00", "fix"),
+		)
+
+	assert cli.main(["list", "--database", str(database_path), "--json"]) == 0
+
+	assert [item["detail"] for item in json.loads(capsys.readouterr().out)["data"]] == [
+		"resolved"
+	]
+
+
+def test_list_rejects_an_invalid_date_as_a_json_usage_error(tmp_path, capsys) -> None:
+	exit_code = cli.main(
+		[
+			"list",
+			"--since",
+			"2026-9-3",
+			"--database",
+			str(tmp_path / "friction.db"),
+			"--json",
+		]
+	)
+	captured = capsys.readouterr()
+
+	assert exit_code == 2
+	assert captured.err == ""
+	assert json.loads(captured.out) == {
+		"ok": False,
+		"error": {"message": "argument --since: expected YYYY-MM-DD"},
+	}
+
+
+def test_list_shows_an_empty_human_result(tmp_path, capsys) -> None:
+	exit_code = cli.main(["list", "--database", str(tmp_path / "friction.db")])
+	captured = capsys.readouterr()
+
+	assert exit_code == 0
+	assert captured.err == ""
+	assert "No friction entries." in captured.out
+
+
+def test_list_shows_each_event_on_one_human_row(tmp_path, capsys) -> None:
+	database_path = tmp_path / "friction.db"
+	with Database(database_path).transaction() as connection:
+		connection.execute(
+			"""
+			INSERT INTO events (
+				timestamp_utc, category, cwd, detail, source,
+				tool_name, discriminator, error
+			) VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL)
+			""",
+			(
+				"2026-09-03T09:41:00+00:00",
+				"wrong-approach",
+				"/workspace",
+				"tried a manual retry loop",
+				"manual",
+			),
+		)
+
+	exit_code = cli.main(["list", "--database", str(database_path)])
+	captured = capsys.readouterr()
+
+	assert exit_code == 0
+	assert captured.err == ""
+	assert "2026-09-03T09:41:00+00:00" in captured.out
+	assert "wrong-approach" in captured.out
+	assert "tried a manual retry loop" in captured.out
+
+
 def test_doctor_reports_database_health_and_private_database_permissions(
 	tmp_path, capsys
 ) -> None:

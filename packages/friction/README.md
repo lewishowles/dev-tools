@@ -56,6 +56,17 @@ friction summary
 
 Rows group by exact category, working directory, and detail, sorted by count. `check-fail` and `tool-error` are excluded by default (`--include-check-fails`, `--include-tool-errors` bring them back), and `--category <name>` filters to one or more categories (repeat the flag to select several).
 
+```bash
+friction list --since 2026-09-01 --until 2026-09-04
+```
+
+```
+2026-09-02T14:07:00+00:00  rule-ignored    /Users/you/project-a  skipped the review gate before committing
+2026-09-03T09:41:00+00:00  wrong-approach  /Users/you/project-a  tried a manual retry loop instead of fixing the root cause
+```
+
+`friction list` returns individual events, oldest first, rather than the grouped counts `summary` shows. It takes the same `--category`, `--include-check-fails`, and `--include-tool-errors` flags as `summary`, and adds `--since YYYY-MM-DD` and `--until YYYY-MM-DD`, both inclusive of the named day. Unlike `summary`, it also lists events that a resolution has since hidden. Add `--json` to get one object per event with every column: `timestamp_utc`, `category`, `cwd`, `detail`, `source`, `tool_name`, `discriminator`, and `error`.
+
 ## Resolving a recurring pattern
 
 ```bash

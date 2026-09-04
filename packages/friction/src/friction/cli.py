@@ -3,12 +3,13 @@
 import argparse
 import json
 import sys
+from datetime import datetime
 
 from .database import Database
 from .errors import DatabaseBusyError
 from .hooks import record_claude_tool_failure
 from .imports import import_files
-from .reads import summary
+from .reads import list_events, summary
 from .writes import CATEGORIES, add_event, add_resolution, database_doctor
 from . import style
 
@@ -23,6 +24,23 @@ class FrictionArgumentParser(argparse.ArgumentParser):
 	def error(self, message: str) -> None:
 		"""Raise a formatting-friendly exception instead of exiting immediately."""
 		raise CliUsageError(message)
+
+
+def _validate_date(value: str) -> str:
+	"""Check a --since/--until value is a real date before it is compared as text.
+
+	Returned unchanged so the caller compares it against timestamp_utc directly.
+	"""
+	try:
+		parsed = datetime.strptime(value, "%Y-%m-%d")
+	except ValueError as error:
+		raise argparse.ArgumentTypeError("expected YYYY-MM-DD") from error
+
+	# strptime accepts unpadded fields like 2026-9-3; require the canonical form.
+	if parsed.strftime("%Y-%m-%d") != value:
+		raise argparse.ArgumentTypeError("expected YYYY-MM-DD")
+
+	return value
 
 
 def _add_output_options(parser: argparse.ArgumentParser) -> None:
@@ -88,6 +106,38 @@ def build_parser() -> argparse.ArgumentParser:
 		help="include automated tool errors",
 	)
 	_add_output_options(summary_parser)
+
+	list_parser = commands.add_parser("list", help="show individual friction events")
+	list_parser.add_argument(
+		"--category",
+		action="append",
+		choices=sorted(CATEGORIES),
+		default=[],
+		help="include only one category; repeat to select several",
+	)
+	list_parser.add_argument(
+		"--include-check-fails",
+		action="store_true",
+		help="include automated check failures",
+	)
+	list_parser.add_argument(
+		"--include-tool-errors",
+		action="store_true",
+		help="include automated tool errors",
+	)
+	list_parser.add_argument(
+		"--since",
+		type=_validate_date,
+		metavar="YYYY-MM-DD",
+		help="include events on or after this date",
+	)
+	list_parser.add_argument(
+		"--until",
+		type=_validate_date,
+		metavar="YYYY-MM-DD",
+		help="include events on or before this date",
+	)
+	_add_output_options(list_parser)
 
 	import_parser = commands.add_parser(
 		"import", help="import legacy friction TSV files"
@@ -161,6 +211,18 @@ def _human_output(
 			for item in data
 		)
 
+	if command == "list":
+		if not data:
+			return style.span("No friction entries.")
+
+		return "\n".join(
+			style.row(
+				str(item["timestamp_utc"]),
+				f"{item['category']}  {item['cwd']}  {item['detail']}",
+			)
+			for item in data
+		)
+
 	if command == "import":
 		rejected_rows = data["rejected_rows"]
 		rows = [
@@ -206,6 +268,19 @@ def _run_command(
 				include_tool_errors=args.include_tool_errors,
 			),
 			"summary",
+		)
+
+	if args.command == "list":
+		return (
+			list_events(
+				database,
+				args.category,
+				include_check_fails=args.include_check_fails,
+				include_tool_errors=args.include_tool_errors,
+				since=args.since,
+				until=args.until,
+			),
+			"list",
 		)
 
 	if args.command == "import":
