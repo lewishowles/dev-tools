@@ -162,6 +162,52 @@ def row(
 	return render("row", data, **kwargs)
 
 
+# Render a table from Python values.
+#
+# @param  {Sequence[dict[str, Any]]}  columns
+#     Table column definitions.
+# @param  {Sequence[dict[str, Any]]}  rows
+#     Table rows keyed by column key.
+def table(
+	columns: Sequence[dict[str, Any]],
+	rows: Sequence[dict[str, Any]],
+	**kwargs: Any,
+) -> str:
+	table_columns = []
+
+	for column in columns:
+		table_column = {
+			"key": column["key"],
+			"label": column["label"],
+		}
+
+		if "max_width" in column:
+			table_column["maxWidth"] = column["max_width"]
+
+		if "overflow" in column:
+			table_column["overflow"] = column["overflow"]
+
+		table_columns.append(table_column)
+
+	return render("table", {"columns": table_columns, "rows": list(rows)}, **kwargs)
+
+
+# Render grouped labelled rows from Python values.
+#
+# @param  {Sequence[dict[str, Any]]}  rows
+#     Labelled rows with optional result types.
+# @param  {int|None}  label_width
+#     Optional shared label width.
+def row_group(
+	rows: Sequence[dict[str, Any]],
+	label_width: int | None = None,
+	**kwargs: Any,
+) -> str:
+	return render(
+		"row-group", {"rows": list(rows), "labelWidth": label_width}, **kwargs
+	)
+
+
 # Render an inline span from Python values.
 #
 # @param  {str}  value
