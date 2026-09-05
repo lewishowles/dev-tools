@@ -215,12 +215,32 @@ def _human_output(
 		if not data:
 			return style.span("No friction entries.")
 
-		return "\n".join(
-			style.row(
-				str(item["timestamp_utc"]),
-				f"{item['category']}  {item['cwd']}  {item['detail']}",
-			)
-			for item in data
+		return style.table(
+			[
+				{"key": "timestamp", "label": "Timestamp"},
+				{"key": "category", "label": "Category"},
+				{
+					"key": "cwd",
+					"label": "CWD",
+					"max_width": 40,
+					"overflow": "wrap",
+				},
+				{
+					"key": "detail",
+					"label": "Detail",
+					"max_width": 60,
+					"overflow": "wrap",
+				},
+			],
+			[
+				{
+					"timestamp": str(item["timestamp_utc"]),
+					"category": str(item["category"]),
+					"cwd": str(item["cwd"]),
+					"detail": str(item["detail"]),
+				}
+				for item in data
+			],
 		)
 
 	if command == "import":
