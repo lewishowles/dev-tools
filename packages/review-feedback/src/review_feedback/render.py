@@ -4,6 +4,12 @@ from pathlib import Path
 
 from review_feedback.draft import Draft, DraftEntry, location_text
 
+# Opening instructions for the agent that receives the packet.
+INTRO = (
+	"Please work through the feedback below. Ask any clarifying questions before making changes. "
+	"When the fixes are done, show a before and after for each item, so I don't have to find it in the source again.\n\n"
+)
+
 
 def render_packet(draft: Draft) -> str:
 	"""Build the full Markdown packet from a draft's entries, or an empty string when there are none."""
@@ -12,7 +18,7 @@ def render_packet(draft: Draft) -> str:
 
 	# Store one rendered section for each draft entry.
 	entries = [_render_entry(entry) for entry in draft.entries]
-	return "\n\n".join(entries) + "\n"
+	return INTRO + "\n\n".join(entries) + "\n"
 
 
 def _render_entry(entry: DraftEntry) -> str:
