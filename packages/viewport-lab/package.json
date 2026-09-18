@@ -1,0 +1,22 @@
+{
+	"name": "@lewishowles/viewport-lab",
+	"version": "0.1.0",
+	"description": "Inspect pages at fixed viewport sizes in an Electron desktop app.",
+	"license": "MIT",
+	"private": true,
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/lewishowles/dev-tools.git",
+		"directory": "packages/viewport-lab"
+	},
+	"main": "src/main/main.js",
+	"type": "module",
+	"scripts": {
+		"start": "electron .",
+		"test": "bun test"
+	},
+	"dependencies": {
+		"@lewishowles/helpers": "1.7.1",
+		"electron": "^44.4.1"
+	}
+}
