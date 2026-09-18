@@ -1,59 +1,37 @@
-import { BrowserWindow, WebContentsView, app, ipcMain } from "electron";
+import { BrowserWindow, app, ipcMain } from "electron";
 import { checkUrl } from "../url.js";
 import { fileURLToPath } from "node:url";
 
-// The address the app is showing. It starts from the command-line argument; an invalid argument
-// is ignored and the URL bar starts empty.
+// The single page containing the URL bar and the scrolling pane grid.
+const appPagePath = fileURLToPath(new URL("./index.html", import.meta.url));
+// The bridge for URL submission and updates in the app page.
+const appPreloadPath = fileURLToPath(new URL("./preload.cjs", import.meta.url));
+
+// The address the app is showing. Invalid command-line input leaves the field empty.
 let storedUrl = checkUrl(process.argv[2]).url ?? "";
 
-// The page that displays the URL bar.
-const urlBarPagePath = fileURLToPath(new URL("../toolbar/index.html", import.meta.url));
-// The script that lets the URL bar send an address to the app.
-const urlBarPreloadPath = fileURLToPath(new URL("../toolbar/preload.cjs", import.meta.url));
+// The app window, set when it is created so IPC handlers can verify their sender.
+let activeMainWindow;
+
+// Webview markup is supplied by the app renderer, so enforce safe defaults in the main process.
+app.on("will-attach-webview", (_event, webPreferences) => {
+	delete webPreferences.preload;
+	webPreferences.contextIsolation = true;
+	webPreferences.nodeIntegration = false;
+	webPreferences.sandbox = true;
+});
+
+// Deny windows opened by the app page or any pane webview.
+app.on("web-contents-created", (_event, contents) => {
+	contents.setWindowOpenHandler(() => ({ action: "deny" }));
+});
+
+app.whenReady().then(createWindow);
+
+ipcMain.on("viewport-lab:submit-url", handleUrlSubmission);
 
 /**
- * Keep the URL bar across the top of the window.
- *
- * A WebContentsView has no automatic layout, and the bar must be a child view because pane views
- * draw over the window's own page.
- *
- * @param  {BrowserWindow} mainWindow
- *     Window that contains the URL bar.
- * @param  {WebContentsView} toolbarView
- *     URL bar view to position.
- */
-function updateToolbarBounds(mainWindow, toolbarView) {
-	const [contentWidth] = mainWindow.getContentSize();
-
-	toolbarView.setBounds({
-		height: 64,
-		width: contentWidth,
-		x: 0,
-		y: 0,
-	});
-}
-
-/**
- * Store an address submitted by the URL bar. Invalid addresses are dropped, so the stored address
- * is always one the panes can open.
- *
- * @param  {object}  event
- *     Message event from Electron, unused.
- * @param  {unknown}  nextUrl
- *     Address submitted by the URL bar.
- */
-function handleUrlSubmission(event, nextUrl) {
-	const nextUrlResult = checkUrl(nextUrl);
-
-	if ("error" in nextUrlResult) {
-		return;
-	}
-
-	storedUrl = nextUrlResult.url;
-}
-
-/**
- * Create the app window and its URL bar.
+ * Create the app window with one renderer for the URL bar and pane grid.
  */
 function createWindow() {
 	const mainWindow = new BrowserWindow({
@@ -62,31 +40,59 @@ function createWindow() {
 		minWidth: 640,
 		title: "Viewport Lab",
 		width: 1280,
-	});
-
-	const toolbarView = new WebContentsView({
 		webPreferences: {
 			contextIsolation: true,
 			nodeIntegration: false,
-			preload: urlBarPreloadPath,
+			preload: appPreloadPath,
 			sandbox: true,
+			webviewTag: true,
 		},
 	});
 
-	mainWindow.contentView.addChildView(toolbarView);
+	activeMainWindow = mainWindow;
 
-	updateToolbarBounds(mainWindow, toolbarView);
+	mainWindow.webContents.on("did-finish-load", sendStoredUrl);
 
-	mainWindow.on("resize", () => updateToolbarBounds(mainWindow, toolbarView));
-	mainWindow.on("closed", () => app.quit());
-
-	toolbarView.webContents.loadFile(urlBarPagePath, {
-		query: {
-			url: storedUrl,
-		},
+	mainWindow.on("closed", () => {
+		activeMainWindow = undefined;
+		app.quit();
 	});
+
+	void mainWindow.loadFile(appPagePath);
 }
 
-ipcMain.on("viewport-lab:submit-url", handleUrlSubmission);
+/**
+ * Tell the app page which address to show in the URL bar and every pane.
+ */
+function sendStoredUrl() {
+	if (!activeMainWindow) {
+		return;
+	}
 
-app.whenReady().then(createWindow);
+	activeMainWindow.webContents.send("viewport-lab:load-url", storedUrl);
+}
+
+/**
+ * Store an address submitted by the URL bar and load it in every pane. Invalid addresses and
+ * messages from any other page are ignored.
+ *
+ * @param  {object}  event
+ *     Message event from the app page.
+ * @param  {unknown}  nextUrl
+ *     Address submitted by the URL bar.
+ */
+function handleUrlSubmission(event, nextUrl) {
+	if (!activeMainWindow || event.sender !== activeMainWindow.webContents) {
+		return;
+	}
+
+	const nextUrlResult = checkUrl(nextUrl);
+
+	if ("error" in nextUrlResult) {
+		return;
+	}
+
+	storedUrl = nextUrlResult.url;
+
+	sendStoredUrl();
+}

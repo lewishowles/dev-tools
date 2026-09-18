@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Viewport Lab</title>
+		<style>
+			:root {
+				color-scheme: light dark;
+				font-family: system-ui, sans-serif;
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+
+			html,
+			body {
+				height: 100%;
+				margin: 0;
+				overflow: hidden;
+				width: 100%;
+			}
+
+			body {
+				background: #e7ebf2;
+				color: #172033;
+				display: flex;
+				flex-direction: column;
+			}
+
+			#toolbar {
+				background: #f5f7fb;
+				flex: 0 0 auto;
+				height: 64px;
+				padding: 12px 16px;
+			}
+
+			form {
+				align-items: center;
+				display: flex;
+				gap: 10px;
+				height: 40px;
+			}
+
+			label {
+				font-weight: 650;
+				white-space: nowrap;
+			}
+
+			input,
+			button {
+				border: 1px solid #8994a8;
+				border-radius: 6px;
+				box-sizing: border-box;
+				font: inherit;
+				min-height: 40px;
+			}
+
+			input {
+				background: #ffffff;
+				color: #172033;
+				flex: 1;
+				min-width: 0;
+				padding: 8px 10px;
+			}
+
+			button {
+				background: #1d4ed8;
+				color: #ffffff;
+				cursor: pointer;
+				padding: 8px 14px;
+			}
+
+			input:focus-visible,
+			button:focus-visible,
+			webview:focus-visible {
+				outline: 3px solid #1d4ed8;
+				outline-offset: 2px;
+			}
+
+			#scroll-region {
+				flex: 1;
+				min-height: 0;
+				overflow: auto;
+				overflow-anchor: none;
+				width: 100%;
+			}
+
+			#grid-heading {
+				border: 0;
+				clip: rect(0 0 0 0);
+				height: 1px;
+				margin: -1px;
+				overflow: hidden;
+				padding: 0;
+				position: absolute;
+				white-space: nowrap;
+				width: 1px;
+			}
+
+			#grid-content {
+				min-height: 100%;
+				position: relative;
+			}
+
+			.pane-cell {
+				position: absolute;
+			}
+
+			.pane-view {
+				border: 0;
+			}
+
+			.pane-label {
+				align-items: center;
+				background: #ffffff;
+				border: 1px solid #8994a8;
+				display: flex;
+				gap: 8px;
+				line-height: 1.25;
+				min-width: 0;
+				padding: 7px 10px;
+			}
+
+			.pane-name,
+			.pane-size,
+			.pane-error {
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			.pane-name {
+				font-weight: 650;
+			}
+
+			.pane-size {
+				color: #46546d;
+				font-size: 0.9rem;
+			}
+
+			.pane-error {
+				color: #a52626;
+				font-size: 0.85rem;
+				margin-inline-start: auto;
+				min-width: 0;
+			}
+
+			@media (prefers-color-scheme: dark) {
+				body {
+					background: #0f172a;
+					color: #f5f7fb;
+				}
+
+				#toolbar,
+				.pane-label {
+					background: #172033;
+				}
+
+				input {
+					background: #27334a;
+					color: #f5f7fb;
+				}
+
+				.pane-size {
+					color: #c4ccda;
+				}
+
+				.pane-error {
+					color: #ffb4ab;
+				}
+
+				input:focus-visible,
+				button:focus-visible,
+				webview:focus-visible {
+					outline-color: #f59e0b;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<header id="toolbar">
+			<form id="url-form">
+				<label for="url-input">Page URL</label>
+				<input
+					id="url-input"
+					name="url"
+					type="url"
+					inputmode="url"
+					autocomplete="url"
+					placeholder="https://example.com"
+					spellcheck="false"
+				/>
+				<button type="submit">Load page</button>
+			</form>
+		</header>
+		<main id="scroll-region" aria-labelledby="grid-heading">
+			<h1 id="grid-heading">Viewport panes</h1>
+			<div id="grid-content"></div>
+		</main>
+		<script type="module" src="./renderer.js"></script>
+	</body>
+</html>
