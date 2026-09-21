@@ -100,16 +100,25 @@
 			}
 
 			#grid-content {
+				align-content: flex-start;
+				align-items: flex-start;
+				display: flex;
+				flex-wrap: wrap;
+				gap: 64px;
 				min-height: 100%;
-				position: relative;
+				min-width: 100%;
+				padding: 64px;
+				width: fit-content;
 			}
 
 			.pane-cell {
-				position: absolute;
+				width: var(--pane-width);
 			}
 
 			.pane-view {
 				border: 0;
+				height: var(--pane-height);
+				width: var(--pane-width);
 			}
 
 			.pane-label {
@@ -118,6 +127,7 @@
 				border: 1px solid #8994a8;
 				display: flex;
 				gap: 8px;
+				height: 40px;
 				line-height: 1.25;
 				min-width: 0;
 				padding: 7px 10px;
@@ -199,6 +209,22 @@
 			<h1 id="grid-heading">Viewport panes</h1>
 			<div id="grid-content"></div>
 		</main>
+
+		<template id="pane-template">
+			<section class="pane-cell">
+				<div class="pane-label">
+					<span class="pane-name"></span>
+					<span class="pane-size"></span>
+					<span class="pane-error" aria-live="polite"></span>
+				</div>
+				<webview
+					class="pane-view"
+					webpreferences="contextIsolation=yes,sandbox=yes"
+					src="about:blank"
+				></webview>
+			</section>
+		</template>
+
 		<script type="module" src="./renderer.js"></script>
 	</body>
 </html>

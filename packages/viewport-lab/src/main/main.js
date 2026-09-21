@@ -18,6 +18,7 @@ let activeMainWindow;
 // the main process.
 app.on("will-attach-webview", (_event, webPreferences) => {
 	delete webPreferences.preload;
+
 	webPreferences.contextIsolation = true;
 	webPreferences.nodeIntegration = false;
 	webPreferences.sandbox = true;
