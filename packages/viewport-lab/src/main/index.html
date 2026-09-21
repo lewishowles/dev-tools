@@ -3,6 +3,10 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta
+			http-equiv="Content-Security-Policy"
+			content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+		/>
 		<title>Viewport Lab</title>
 		<style>
 			:root {
@@ -72,6 +76,24 @@
 				padding: 8px 14px;
 			}
 
+			.pane-controls {
+				align-items: center;
+				display: flex;
+				flex: 0 0 auto;
+				gap: 4px;
+				margin-inline-start: auto;
+			}
+
+			.pane-controls button {
+				background: #e1e8f8;
+				color: #172033;
+				font-size: 1rem;
+				line-height: 1;
+				min-height: 32px;
+				padding: 4px;
+				width: 32px;
+			}
+
 			input:focus-visible,
 			button:focus-visible,
 			webview:focus-visible {
@@ -111,14 +133,37 @@
 				width: fit-content;
 			}
 
+			#grid-content.is-maximised {
+				display: block;
+				height: 100%;
+				min-width: 100%;
+				padding: 0;
+				width: 100%;
+			}
+
 			.pane-cell {
 				width: var(--pane-width);
 			}
 
 			.pane-view {
 				border: 0;
+				display: flex;
 				height: var(--pane-height);
 				width: var(--pane-width);
+			}
+
+			#grid-content.is-maximised .pane-cell:not([hidden]) {
+				display: flex;
+				flex-direction: column;
+				height: 100%;
+				width: 100%;
+			}
+
+			#grid-content.is-maximised .pane-view {
+				flex: 1 1 auto;
+				height: auto;
+				min-height: 0;
+				width: 100%;
 			}
 
 			.pane-label {
@@ -133,12 +178,21 @@
 				padding: 7px 10px;
 			}
 
+			.pane-cell[hidden] {
+				display: none;
+			}
+
 			.pane-name,
 			.pane-size,
 			.pane-error {
 				overflow: hidden;
 				text-overflow: ellipsis;
 				white-space: nowrap;
+			}
+
+			.pane-name,
+			.pane-size {
+				flex: 0 0 auto;
 			}
 
 			.pane-name {
@@ -152,8 +206,8 @@
 
 			.pane-error {
 				color: #a52626;
+				flex: 1 1 auto;
 				font-size: 0.85rem;
-				margin-inline-start: auto;
 				min-width: 0;
 			}
 
@@ -181,6 +235,11 @@
 					color: #ffb4ab;
 				}
 
+				.pane-controls button {
+					background: #33415d;
+					color: #f5f7fb;
+				}
+
 				input:focus-visible,
 				button:focus-visible,
 				webview:focus-visible {
@@ -196,13 +255,14 @@
 				<input
 					id="url-input"
 					name="url"
-					type="url"
+					type="text"
 					inputmode="url"
-					autocomplete="url"
+					autocomplete="off"
 					placeholder="https://example.com"
 					spellcheck="false"
 				/>
 				<button type="submit">Load page</button>
+				<button id="reload-all" type="button">Reload all</button>
 			</form>
 		</header>
 		<main id="scroll-region" aria-labelledby="grid-heading">
@@ -216,6 +276,32 @@
 					<span class="pane-name"></span>
 					<span class="pane-size"></span>
 					<span class="pane-error" aria-live="polite"></span>
+					<div class="pane-controls">
+						<button
+							class="pane-reload"
+							type="button"
+							aria-label="Reload pane"
+							title="Reload pane"
+						>
+							↻
+						</button>
+						<button
+							class="pane-rotate"
+							type="button"
+							aria-label="Rotate pane"
+							title="Rotate pane"
+						>
+							⇄
+						</button>
+						<button
+							class="pane-maximise"
+							type="button"
+							aria-label="Maximise pane"
+							title="Maximise pane"
+						>
+							⛶
+						</button>
+					</div>
 				</div>
 				<webview
 					class="pane-view"
