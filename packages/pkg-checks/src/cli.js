@@ -7,7 +7,7 @@ import { readSizeConfig, runSizeCheck } from "./checks/size.js";
 import { runTestCoverageCheck } from "./checks/test-coverage.js";
 import { runTypeDeclarationsCheck } from "./checks/type-declarations.js";
 
-// Keep help and argument errors on one usage source to prevent their instructions drifting.
+// The usage text, shown both for --help and after an argument error.
 const usage = [
 	"Usage: pkg-checks <command> <package-path>",
 	"",
@@ -30,24 +30,25 @@ const usage = [
 	"  pkg-checks test-coverage ~/Dev/Repositories/Packages/helpers",
 ].join("\n");
 
-// Keep the remediation with the policy failure so callers know how to resolve it.
+// The next step shown when a package has runtime dependencies that are not
+// allowed.
 const RUNTIME_DEPENDENCY_HINT =
 	"Move runtime dependencies to devDependencies, or document the exception in ALLOWED_DEPS.";
 
-// Keep the remediation with the type check so missing declarations fail with a next step.
+// The next step shown when exported names have no type declaration.
 const TYPE_DECLARATIONS_HINT = "Add the missing declarations to the types file before committing.";
-
-// Keep the remediation with the coverage check so missing tests fail with a next step.
+// The next step shown when exported helpers have no test file.
 const TEST_COVERAGE_HINT = "Add a test file for each helper before pushing.";
 
-// Keep mode labels in one map so each export result uses the same wording.
+// The heading shown for each kind of export check.
 const exportModeLabels = {
 	"barrel-coverage": "Barrel coverage",
 	"exports-map": "Exports map",
 };
 
 /**
- * Report one check result as failure rows with an optional hint, or a success status.
+ * Report one check result as failure rows with an optional hint, or a success
+ * status.
  *
  * @param  {object}  result
  *     Check result to report.
@@ -61,11 +62,13 @@ const exportModeLabels = {
  *     Label shown when the check passes.
  * @param  {string}  [resultLabels.hintText]
  *     Optional guidance shown below failure rows.
+ *
  * @returns  {void}
  *     Nothing.
  */
 function reportCheckResult(result, options, { failed, success, hintText }) {
 	if (result.failures.length > 0) {
+		// The rendered failure lines.
 		const lines = [status("failed", "", { ...options, label: failed })];
 
 		for (const failure of result.failures) {
@@ -91,10 +94,15 @@ function reportCheckResult(result, options, { failed, success, hintText }) {
  *     Package directory path.
  * @param  {string[]}  argumentsList
  *     Arguments following the package path.
+ *
+ * @throws  {Error}
+ *     When an unsupported or incomplete option is provided.
+ *
  * @returns  {string}
  *     Resolved configuration path.
  */
 function getConfigPath(packagePath, argumentsList) {
+	// The optional configuration path.
 	let configPath;
 
 	for (let index = 0; index < argumentsList.length; index += 1) {
@@ -102,6 +110,7 @@ function getConfigPath(packagePath, argumentsList) {
 			throw new Error("Expected --config <path> after the package directory.");
 		}
 
+		// The path following the --config option.
 		const nextArgument = argumentsList[index + 1];
 
 		if (!nextArgument || nextArgument.startsWith("-")) {
@@ -119,12 +128,13 @@ function getConfigPath(packagePath, argumentsList) {
 	return resolve(configPath ?? join(packagePath, "quality.config.json"));
 }
 
-// Keep command requirements and handlers together so dispatch cannot drift from validation/reporting.
+// Each command's options and the function that runs it.
 const commands = {
 	exports: {
 		needsConfig: true,
 		report: (result, options) => {
 			for (const modeResult of result.results) {
+				// The label for the current export check mode.
 				const label = exportModeLabels[modeResult.mode];
 
 				reportCheckResult(modeResult, options, {
@@ -134,6 +144,7 @@ const commands = {
 			}
 		},
 		run: async (packagePath, configPath) => {
+			// The validated exports configuration.
 			const config = await readExportsConfig(configPath);
 
 			return runExportsCheck(packagePath, config);
@@ -149,6 +160,7 @@ const commands = {
 			});
 		},
 		run: async (packagePath, configPath) => {
+			// The validated runtime dependency configuration.
 			const config = await readRuntimeDependencyConfig(configPath);
 
 			return runRuntimeDependencyCheck(packagePath, config);
@@ -165,6 +177,7 @@ const commands = {
 			}
 		},
 		run: async (packagePath, configPath) => {
+			// The validated size configuration.
 			const config = await readSizeConfig(configPath);
 
 			return runSizeCheck(packagePath, config);
@@ -172,6 +185,7 @@ const commands = {
 	},
 	"test-coverage": {
 		report: (result, options) => {
+			// The single coverage result.
 			const [checkResult] = result.results;
 
 			reportCheckResult(checkResult, options, {
@@ -184,6 +198,7 @@ const commands = {
 	},
 	"type-declarations": {
 		report: (result, options) => {
+			// The single type declaration result.
 			const [checkResult] = result.results;
 
 			reportCheckResult(checkResult, options, {
@@ -203,6 +218,7 @@ const commands = {
  *     Command that was invoked.
  * @param  {object}  options
  *     CLI styling options.
+ *
  * @returns  {void}
  *     Nothing.
  */
@@ -218,10 +234,12 @@ function reportUsageError(command, options) {
  *
  * @param  {string[]}  argumentsList
  *     Command-line arguments excluding the executable.
+ *
  * @returns  {Promise<number>}
  *     Process exit code.
  */
 export async function runCli(argumentsList) {
+	// The configured command-line styling options.
 	const ui = createCliStyle({
 		argv: argumentsList,
 		env: process.env,
@@ -238,7 +256,9 @@ export async function runCli(argumentsList) {
 		return 0;
 	}
 
+	// The command, package path, and extra arguments.
 	const [command, packagePath, ...extraArguments] = argumentsList;
+	// The handler for the requested command.
 	const commandDefinition = Object.hasOwn(commands, command) ? commands[command] : undefined;
 
 	if (!commandDefinition) {
@@ -261,16 +281,19 @@ export async function runCli(argumentsList) {
 	}
 
 	try {
+		// The check configuration path, when the command needs one.
 		const configPath = commandDefinition.needsConfig
 			? getConfigPath(packagePath, extraArguments)
 			: undefined;
 
+		// The completed check result.
 		const result = await commandDefinition.run(packagePath, configPath);
 
 		commandDefinition.report(result, ui.options);
 
 		return result.failures.length > 0 ? 1 : 0;
 	} catch (error) {
+		// The user-facing error message.
 		const message = error instanceof Error ? error.message : String(error);
 
 		console.error(status("failed", "", { ...ui.options, label: `pkg-checks: ${message}` }));

@@ -6,7 +6,9 @@ import { runExportsCheck } from "../src/checks/exports.js";
  * Resolve a checked-in pkg-checks fixture package directory by name.
  *
  * @param  {string}  packageName
- *     Fixture package directory name relative to the package fixtures directory.
+ *     Fixture package directory name relative to the package fixtures
+ *     directory.
+ *
  * @returns  {string}
  *     Absolute fixture package path.
  */

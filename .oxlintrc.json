@@ -1,5 +1,8 @@
 {
-	"extends": ["./node_modules/@lewishowles/lint-config/base.json"],
+	"extends": [
+		"./node_modules/@lewishowles/lint-config/base.json",
+		"./node_modules/@lewishowles/lint-config/comments.json"
+	],
 	"env": {
 		"builtin": true,
 		"browser": true,

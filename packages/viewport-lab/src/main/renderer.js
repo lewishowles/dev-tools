@@ -16,16 +16,19 @@ const paneElements = new Map();
  * Recalculate positions from the available scrolling width.
  */
 function updateGrid() {
+	// Use the layout to size and position the scrolling grid.
 	const layout = createGridLayout(PANE_DEFINITIONS, scrollRegion.clientWidth);
 
 	gridContent.style.height = `${layout.contentHeight}px`;
 	gridContent.style.width = `${layout.contentWidth}px`;
 
 	for (const cell of layout.cells) {
+		// Reuse the pane elements so loaded pages survive layout updates.
 		let paneState = paneElements.get(cell.id);
 
 		if (!paneState) {
 			paneState = createPaneElements(cell);
+
 			paneElements.set(cell.id, paneState);
 			gridContent.append(paneState.cell);
 		}
@@ -39,31 +42,46 @@ function updateGrid() {
  *
  * @param  {object}  cell
  *     Pane definition and CSS position.
- * @returns {{cell: HTMLElement, error: HTMLElement, name: HTMLElement, size: HTMLElement, view: HTMLElement}}
- *     Elements that make up the pane cell.
+ *
+ * @returns  {object}
+ *     Object containing the `cell`, `error`, `name`, `size`, and `view`
+ *     elements.
  */
 function createPaneElements(cell) {
+	// The pane cell container.
 	const paneCell = document.createElement("section");
+	// The label strip above the webview.
 	const paneLabel = document.createElement("div");
+	// The pane name element.
 	const paneName = document.createElement("span");
+	// The pane size element.
 	const paneSize = document.createElement("span");
+	// The pane load-error element.
 	const paneError = document.createElement("span");
+	// The page webview.
 	const paneView = document.createElement("webview");
+	// The stable ID used to label the pane.
 	const paneNameId = `${cell.id}-name`;
 
 	paneCell.className = "pane-cell";
+
 	paneCell.setAttribute("aria-labelledby", paneNameId);
+
 	paneLabel.className = "pane-label";
 	paneLabel.style.height = `${PANE_LABEL_HEIGHT}px`;
 	paneName.className = "pane-name";
 	paneName.id = paneNameId;
 	paneSize.className = "pane-size";
 	paneError.className = "pane-error";
+
 	paneError.setAttribute("aria-live", "polite");
+
 	paneView.className = "pane-view";
+
 	paneView.setAttribute("webpreferences", "contextIsolation=yes,sandbox=yes");
 	paneView.addEventListener("did-fail-load", (event) => {
-		// Code -3 means the load was cancelled, for example when a new address replaces it.
+		// Code -3 means the load was cancelled, such as when a new address
+		// replaces it.
 		if (!event.isMainFrame || event.errorCode === -3) {
 			return;
 		}
@@ -73,6 +91,7 @@ function createPaneElements(cell) {
 
 	paneLabel.append(paneName, paneSize, paneError);
 	paneCell.append(paneLabel, paneView);
+
 	paneView.src = "about:blank";
 
 	return {
@@ -87,8 +106,9 @@ function createPaneElements(cell) {
 /**
  * Update one pane's CSS geometry while preserving its loaded page.
  *
- * @param  {{cell: HTMLElement, error: HTMLElement, name: HTMLElement, size: HTMLElement, view: HTMLElement}}  paneState
- *     Elements that make up the pane cell.
+ * @param  {object}  paneState
+ *     Object containing the `cell`, `error`, `name`, `size`, and `view`
+ *     elements.
  * @param  {object}  cell
  *     Pane definition and CSS position.
  */
@@ -101,6 +121,7 @@ function updatePaneElements(paneState, cell) {
 	paneState.size.textContent = `${cell.width} × ${cell.height}`;
 	paneState.view.style.height = `${cell.height}px`;
 	paneState.view.style.width = `${cell.width}px`;
+
 	paneState.view.setAttribute(
 		"aria-label",
 		`${cell.label}, ${cell.width} by ${cell.height} pixels`,
@@ -116,12 +137,14 @@ function updatePaneElements(paneState, cell) {
  *     Human-readable webview load error.
  */
 function showPaneFailure(paneId, errorDescription) {
+	// Show the failure in the matching pane's label.
 	const paneState = paneElements.get(paneId);
 
 	if (!paneState) {
 		return;
 	}
 
+	// The user-facing failure message.
 	const message =
 		typeof errorDescription === "string" && errorDescription
 			? errorDescription

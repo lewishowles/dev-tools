@@ -6,6 +6,7 @@ import { runAxe } from "./checks/axe.js";
 import { loadPage } from "./load.js";
 import { renderPage } from "./render.js";
 
+// The usage text shared by help and argument errors.
 const usage = [
 	"Usage: web-audit <command> <url-or-html-file>",
 	"",
@@ -24,6 +25,9 @@ const usage = [
  *
  * @param  {string}  impact
  *     Violation impact, e.g. "critical", "serious", "moderate", "minor".
+ *
+ * @returns  {string}
+ *     The cli-style result tone.
  */
 function toneForImpact(impact) {
 	return impact === "critical" || impact === "serious" ? "failed" : "warning";
@@ -36,12 +40,15 @@ function toneForImpact(impact) {
  *     Command-line arguments after the render command.
  * @param  {object}  ui
  *     CLI styling instance.
+ *
  * @returns  {Promise<number>}
  *     Process exit code.
  */
 async function runRender(argumentsList, ui) {
+	// The source address and optional render arguments.
 	const [source, ...options] = argumentsList;
 
+	// The optional selector that signals render completion.
 	let selector;
 
 	for (let index = 0; index < options.length; index += 1) {
@@ -64,6 +71,7 @@ async function runRender(argumentsList, ui) {
 	}
 
 	try {
+		// The rendered page HTML.
 		const renderedHtml = await ui.spinner.run("Rendering page", () =>
 			renderPage(source, { selector }),
 		);
@@ -72,6 +80,7 @@ async function runRender(argumentsList, ui) {
 
 		return 0;
 	} catch (error) {
+		// The user-facing error message.
 		const message = error instanceof Error ? error.message : String(error);
 
 		console.error(status("failed", "", { label: `web-audit: ${message}` }));
@@ -85,10 +94,12 @@ async function runRender(argumentsList, ui) {
  *
  * @param  {string[]}  argumentsList
  *     Command-line arguments without the executable name.
+ *
  * @returns  {Promise<number>}
  *     Process exit code.
  */
 export async function runCli(argumentsList) {
+	// The configured command-line styling instance.
 	const ui = createCliStyle({
 		argv: argumentsList,
 		env: process.env,
@@ -105,6 +116,7 @@ export async function runCli(argumentsList) {
 		return 0;
 	}
 
+	// The command, source, and extra arguments.
 	const [command, source, ...extraArguments] = argumentsList;
 
 	if (command === "render") {
@@ -134,20 +146,25 @@ export async function runCli(argumentsList) {
 	}
 
 	try {
+		// The loaded page and browser instance.
 		const loadedPage = await ui.spinner.run("Loading page", () => loadPage(source));
 
 		try {
+			// The number of elements in the loaded document.
 			const elementCount = await loadedPage.page.locator("*").count();
 
 			ui.print(row("Loaded DOM", `${source} (${elementCount} elements)`, ui.options));
 
+			// The axe-core violations in the loaded document.
 			const axeViolations = await runAxe(loadedPage.page);
 
+			// The custom ARIA violations not already covered by axe.
 			const customViolations = await runAriaLabelChecks(
 				loadedPage.page,
 				axeViolations.map(({ target }) => target),
 			);
 
+			// The combined accessibility violations.
 			const violations = [
 				...axeViolations,
 				...customViolations.map((violation) => ({
@@ -176,6 +193,7 @@ export async function runCli(argumentsList) {
 
 		return 0;
 	} catch (error) {
+		// The user-facing error message.
 		const message = error instanceof Error ? error.message : String(error);
 
 		console.error(status("failed", "", { ...ui.options, label: `web-audit: ${message}` }));

@@ -7,10 +7,12 @@ import { loadPage } from "./load.js";
  *     The HTTP(S) URL to render.
  * @param  {RenderOptions}  options
  *     Optional selector that signals render completion.
+ *
  * @returns  {Promise<string>}
  *     The document element's serialised HTML.
  */
 export async function renderPage(source, options = {}) {
+	// The browser page loaded from the source URL.
 	const loadedPage = await loadPage(source);
 
 	try {

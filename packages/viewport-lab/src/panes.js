@@ -1,6 +1,5 @@
-/**
- * Pane sizes shown in the grid, in display order, until pane sets can be edited.
- */
+// The pane sizes shown in the grid, in display order, until pane sets can be
+// edited.
 export const PANE_DEFINITIONS = [
 	{
 		height: 667,

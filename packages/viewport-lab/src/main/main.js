@@ -7,13 +7,15 @@ const appPagePath = fileURLToPath(new URL("./index.html", import.meta.url));
 // The bridge for URL submission and updates in the app page.
 const appPreloadPath = fileURLToPath(new URL("./preload.cjs", import.meta.url));
 
-// The address the app is showing. Invalid command-line input leaves the field empty.
+// The address the app is showing. Invalid command-line input leaves the field
+// empty.
 let storedUrl = checkUrl(process.argv[2]).url ?? "";
-
-// The app window, set when it is created so IPC handlers can verify their sender.
+// The app window, set when it is created so IPC handlers can verify their
+// sender.
 let activeMainWindow;
 
-// Webview markup is supplied by the app renderer, so enforce safe defaults in the main process.
+// Webview markup is supplied by the app renderer, so enforce safe defaults in
+// the main process.
 app.on("will-attach-webview", (_event, webPreferences) => {
 	delete webPreferences.preload;
 	webPreferences.contextIsolation = true;
@@ -34,6 +36,7 @@ ipcMain.on("viewport-lab:submit-url", handleUrlSubmission);
  * Create the app window with one renderer for the URL bar and pane grid.
  */
 function createWindow() {
+	// The window that hosts the URL bar and pane grid.
 	const mainWindow = new BrowserWindow({
 		height: 800,
 		minHeight: 400,
@@ -55,6 +58,7 @@ function createWindow() {
 
 	mainWindow.on("closed", () => {
 		activeMainWindow = undefined;
+
 		app.quit();
 	});
 
@@ -73,8 +77,8 @@ function sendStoredUrl() {
 }
 
 /**
- * Store an address submitted by the URL bar and load it in every pane. Invalid addresses and
- * messages from any other page are ignored.
+ * Store an address submitted by the URL bar and load it in every pane. Invalid
+ * addresses and messages from any other page are ignored.
  *
  * @param  {object}  event
  *     Message event from the app page.
@@ -86,6 +90,7 @@ function handleUrlSubmission(event, nextUrl) {
 		return;
 	}
 
+	// The validation result for the submitted address.
 	const nextUrlResult = checkUrl(nextUrl);
 
 	if ("error" in nextUrlResult) {

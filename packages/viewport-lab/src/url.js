@@ -6,15 +6,16 @@ const SUPPORTED_PROTOCOLS = ["http:", "https:"];
 /**
  * Check that an address is one the app can open.
  *
- * A missing value is allowed and means "no starting address"; the URL bar then starts empty.
- * Empty and non-string values are rejected. An address without a scheme, such as example.com,
- * is treated as https.
+ * A missing value is allowed and means "no starting address"; the URL bar then
+ * starts empty. Empty and non-string values are rejected. An address without a
+ * scheme, such as example.com, is treated as https.
  *
  * @param  {unknown}  value
  *     Address to check, usually from the command line or the URL bar.
+ *
  * @returns  {{url: string}|{error: string}}
- *     The address to open (empty when no value is given), otherwise a message explaining the
- *     problem.
+ *     The address to open (empty when no value is given), otherwise a message
+ *     explaining the problem.
  */
 export function checkUrl(value) {
 	if (value === undefined) {
@@ -25,7 +26,8 @@ export function checkUrl(value) {
 		return { error: "Enter a web address." };
 	}
 
-	// A colon followed by a digit is a port, as in localhost:3000, not a scheme.
+	// A colon followed by a digit is a port, as in localhost:3000, not a
+	// scheme.
 	const hasExplicitProtocol = /^[a-z][a-z\d+.-]*:(?!\d)/i.test(value);
 	// The address to parse, with https added when no scheme was given.
 	const address = hasExplicitProtocol ? value : `https://${value}`;

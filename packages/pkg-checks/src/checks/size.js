@@ -7,6 +7,10 @@ import { join, relative, resolve, sep } from "node:path";
  *
  * @param  {string}  configPath
  *     Configuration file path.
+ *
+ * @throws  {Error}
+ *     When the path or file contents are invalid.
+ *
  * @returns  {Promise<unknown>}
  *     Parsed configuration value.
  */
@@ -15,11 +19,13 @@ export async function readSizeConfig(configPath) {
 		throw new Error("Expected a size budget configuration path.");
 	}
 
+	// The size-budget file contents.
 	const source = await readFile(configPath, "utf8");
 
 	try {
 		return JSON.parse(source);
 	} catch (error) {
+		// The parsing failure message.
 		const reason = error instanceof Error ? error.message : String(error);
 
 		throw new Error(`Invalid JSON in size budget configuration: ${reason}`, { cause: error });
@@ -31,6 +37,7 @@ export async function readSizeConfig(configPath) {
  *
  * @param  {unknown}  value
  *     Value to inspect.
+ *
  * @returns  {boolean}
  *     True when the value is an object record.
  */
@@ -45,6 +52,10 @@ function isRecord(value) {
  *     Glob collection to validate.
  * @param  {string}  label
  *     Configuration label used in validation errors.
+ *
+ * @throws  {Error}
+ *     When the configured globs are invalid.
+ *
  * @returns  {string[]}
  *     Normalised glob patterns.
  */
@@ -58,7 +69,9 @@ function parseGlobs(value, label) {
 	}
 
 	return value.map((glob) => {
+		// The normalised glob pattern.
 		const normalisedGlob = glob.replaceAll("\\", "/").replace(/^\.\/+/, "");
+		// The path segments used to validate the pattern.
 		const segments = normalisedGlob.split("/");
 
 		if (!normalisedGlob || normalisedGlob.startsWith("/") || segments.includes("..")) {
@@ -76,6 +89,10 @@ function parseGlobs(value, label) {
  *     Budget value to validate.
  * @param  {string}  label
  *     Configuration label used in validation errors.
+ *
+ * @throws  {Error}
+ *     When the budget shape is invalid.
+ *
  * @returns  {object}
  *     Validated glob and byte limit.
  */
@@ -84,7 +101,9 @@ function parseBudget(value, label) {
 		throw new Error(`${label} must be an object.`);
 	}
 
+	// The per-file budget globs.
 	const globs = parseGlobs(value.globs, label);
+	// The maximum allowed file size.
 	const maxBytes = value.maxBytes;
 
 	if (typeof maxBytes !== "number" || !Number.isInteger(maxBytes) || maxBytes < 0) {
@@ -101,6 +120,7 @@ function parseBudget(value, label) {
  *     Budget value to validate.
  * @param  {string}  label
  *     Configuration label used in validation errors.
+ *
  * @returns  {object}
  *     Validated per-file budget.
  */
@@ -115,11 +135,17 @@ function parseFileBudget(value, label) {
  *     Budget value to validate.
  * @param  {string}  label
  *     Configuration label used in validation errors.
+ *
+ * @throws  {Error}
+ *     When the configuration shape is invalid.
+ *
  * @returns  {object}
  *     Validated total budget.
  */
 function parseTotalBudget(value, label) {
+	// The validated total budget.
 	const budget = parseBudget(value, label);
+	// The configured total budget name.
 	const name = isRecord(value) ? value.name : undefined;
 
 	if (typeof name !== "string" || !name.trim()) {
@@ -134,6 +160,10 @@ function parseTotalBudget(value, label) {
  *
  * @param  {unknown}  value
  *     Configuration value to validate.
+ *
+ * @throws  {Error}
+ *     When the configuration shape is invalid.
+ *
  * @returns  {object}
  *     Validated size-budget configuration.
  */
@@ -142,7 +172,9 @@ function parseConfig(value) {
 		throw new Error("Configuration must contain a sizeBudgets object.");
 	}
 
+	// The per-file budget.
 	const perFile = parseFileBudget(value.sizeBudgets.perFile, "sizeBudgets.perFile");
+	// The total budgets.
 	const total = value.sizeBudgets.total;
 
 	if (!Array.isArray(total) || total.length === 0) {
@@ -162,13 +194,16 @@ function parseConfig(value) {
  *
  * @param  {string}  glob
  *     Glob pattern to convert.
+ *
  * @returns  {RegExp}
  *     Regular expression matching the glob.
  */
 function globToRegExp(glob) {
+	// The regular expression under construction.
 	let pattern = "^";
 
 	for (let index = 0; index < glob.length; index += 1) {
+		// The current glob character.
 		const character = glob[index];
 
 		if (character === "*" && glob[index + 1] === "*") {
@@ -208,14 +243,18 @@ function globToRegExp(glob) {
  *     Directory to traverse.
  * @param  {string}  packageRoot
  *     Package root used for relative paths.
+ *
  * @returns  {Promise<string[]>}
  *     Sorted package-relative file paths.
  */
 async function collectFiles(directory, packageRoot) {
+	// The directory entries.
 	const entries = await readdir(directory, { withFileTypes: true });
+	// The collected package-relative files.
 	const files = [];
 
 	for (const entry of entries) {
+		// The absolute path for the current entry.
 		const absolutePath = join(directory, entry.name);
 
 		if (entry.isDirectory()) {
@@ -238,10 +277,12 @@ async function collectFiles(directory, packageRoot) {
  *     Package-relative file paths.
  * @param  {string[]}  globs
  *     Glob patterns to apply.
+ *
  * @returns  {string[]}
  *     Matching file paths.
  */
 function matchFiles(files, globs) {
+	// The compiled glob matchers.
 	const matchers = globs.map((glob) => globToRegExp(glob));
 
 	return files.filter((file) => matchers.some((matcher) => matcher.test(file)));
@@ -254,6 +295,7 @@ function matchFiles(files, globs) {
  *     Package root containing the files.
  * @param  {string[]}  files
  *     Package-relative file paths.
+ *
  * @returns  {Promise<object[]>}
  *     Files paired with their byte sizes.
  */
@@ -271,6 +313,7 @@ async function readFileSizes(packageRoot, files) {
  *
  * @param  {number}  bytes
  *     Byte count to format.
+ *
  * @returns  {string}
  *     Human-readable size.
  */
@@ -287,6 +330,7 @@ function formatBytes(bytes) {
  *     Measured byte count.
  * @param  {number}  maxBytes
  *     Allowed byte count.
+ *
  * @returns  {object}
  *     Formatted budget failure.
  */
@@ -304,11 +348,14 @@ function createOverBudgetFailure(target, actualBytes, maxBytes) {
  *     Per-file budget to apply.
  * @param  {object[]}  fileSizes
  *     Measured package files.
+ *
  * @returns  {object}
  *     Per-file budget result.
  */
 function checkPerFileBudget(budget, fileSizes) {
+	// The files matching the current budget.
 	const matchedFiles = fileSizes.filter((file) => matchFiles([file.path], budget.globs).length > 0);
+	// The budget failures.
 	const failures = [];
 
 	if (matchedFiles.length === 0) {
@@ -340,13 +387,17 @@ function checkPerFileBudget(budget, fileSizes) {
  *     Total budget to apply.
  * @param  {object[]}  fileSizes
  *     Measured package files.
+ *
  * @returns  {object}
  *     Total budget result.
  */
 function checkTotalBudget(budget, fileSizes) {
+	// The files matching the current budget.
 	const matchedFiles = fileSizes.filter((file) => matchFiles([file.path], budget.globs).length > 0);
+	// The combined size of the matching files.
 	const actualBytes = matchedFiles.reduce((total, file) => total + file.bytes, 0);
 
+	// The total-budget failures.
 	const failures =
 		actualBytes > budget.maxBytes
 			? [createOverBudgetFailure(budget.name, actualBytes, budget.maxBytes)]
@@ -369,6 +420,10 @@ function checkTotalBudget(budget, fileSizes) {
  *     Package directory path supplied by the caller.
  * @param  {unknown}  rawConfig
  *     Unvalidated size-budget configuration.
+ *
+ * @throws  {Error}
+ *     When the package path or budget configuration is invalid.
+ *
  * @returns  {Promise<object>}
  *     Combined size-check results.
  */
@@ -376,16 +431,22 @@ export async function runSizeCheck(packagePath, rawConfig) {
 	if (typeof packagePath !== "string" || !packagePath.trim()) {
 		throw new Error("Expected a package directory path.");
 	}
+
+	// The resolved package directory.
 	const packageRoot = resolve(packagePath);
 
 	if (!existsSync(packageRoot)) {
 		throw new Error(`Package directory not found: ${packagePath}`);
 	}
 
+	// The validated size-budget configuration.
 	const config = parseConfig(rawConfig);
+	// The package-relative files.
 	const files = await collectFiles(packageRoot, packageRoot);
+	// The measured file sizes.
 	const fileSizes = await readFileSizes(packageRoot, files);
 
+	// The per-file and total budget results.
 	const results = [
 		checkPerFileBudget(config.sizeBudgets.perFile, fileSizes),
 		...config.sizeBudgets.total.map((budget) => checkTotalBudget(budget, fileSizes)),

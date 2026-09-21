@@ -7,6 +7,10 @@ import { join, resolve } from "node:path";
  *
  * @param  {string}  configPath
  *     Configuration file path.
+ *
+ * @throws  {Error}
+ *     When the path or file contents are invalid.
+ *
  * @returns  {Promise<unknown>}
  *     Parsed configuration value.
  */
@@ -15,11 +19,13 @@ export async function readRuntimeDependencyConfig(configPath) {
 		throw new Error("Expected a runtime dependency policy configuration path.");
 	}
 
+	// The configuration file contents.
 	const source = await readFile(configPath, "utf8");
 
 	try {
 		return JSON.parse(source);
 	} catch (error) {
+		// The parsing failure message.
 		const reason = error instanceof Error ? error.message : String(error);
 
 		throw new Error(`Invalid JSON in runtime dependency policy configuration: ${reason}`, {
@@ -33,6 +39,7 @@ export async function readRuntimeDependencyConfig(configPath) {
  *
  * @param  {unknown}  value
  *     Value to inspect.
+ *
  * @returns  {boolean}
  *     True when the value is an object record.
  */
@@ -45,6 +52,10 @@ function isRecord(value) {
  *
  * @param  {unknown}  value
  *     Configuration value to validate.
+ *
+ * @throws  {Error}
+ *     When the configuration shape is invalid.
+ *
  * @returns  {Set<string>}
  *     Allowed dependency names.
  */
@@ -53,6 +64,7 @@ function parseConfig(value) {
 		throw new Error("Configuration must contain a runtimeDependencyPolicy object.");
 	}
 
+	// The configured dependency allow-list.
 	const allowed = value.runtimeDependencyPolicy.allowed;
 
 	if (
@@ -70,16 +82,22 @@ function parseConfig(value) {
  *
  * @param  {string}  packageRoot
  *     Package directory containing package.json.
+ *
+ * @throws  {Error}
+ *     When package.json is missing or invalid.
+ *
  * @returns  {Promise<object>}
  *     Parsed package manifest.
  */
 async function readPackageManifest(packageRoot) {
+	// The package manifest path.
 	const packageJsonPath = join(packageRoot, "package.json");
 
 	if (!existsSync(packageJsonPath)) {
 		throw new Error(`package.json not found: ${packageRoot}`);
 	}
 
+	// The parsed package manifest.
 	const parsed = JSON.parse(await readFile(packageJsonPath, "utf8"));
 
 	if (!isRecord(parsed)) {
@@ -96,6 +114,7 @@ async function readPackageManifest(packageRoot) {
  *     Dependency names declared by the package.
  * @param  {Set<string>}  allowedDependencies
  *     Approved dependency names.
+ *
  * @returns  {object[]}
  *     Failures for every unexpected dependency.
  */
@@ -115,6 +134,11 @@ function findUnexpectedDependencies(dependencies, allowedDependencies) {
  *     Package directory path supplied by the caller.
  * @param  {unknown}  rawConfig
  *     Unvalidated runtime dependency policy configuration.
+ *
+ * @throws  {Error}
+ *     When the package path, policy configuration, package.json, or
+ *     dependencies value is invalid.
+ *
  * @returns  {Promise<object>}
  *     Combined runtime dependency results.
  */
@@ -123,23 +147,30 @@ export async function runRuntimeDependencyCheck(packagePath, rawConfig) {
 		throw new Error("Expected a package directory path.");
 	}
 
+	// The absolute package directory.
 	const packageRoot = resolve(packagePath);
 
 	if (!existsSync(packageRoot)) {
 		throw new Error(`Package directory not found: ${packagePath}`);
 	}
 
+	// The approved dependency names.
 	const allowedDependencies = parseConfig(rawConfig);
+	// Use the package manifest to inspect the declared dependencies.
 	const manifest = await readPackageManifest(packageRoot);
+	// The package's declared runtime dependencies.
 	const dependencies = manifest.dependencies ?? {};
 
 	if (!isRecord(dependencies)) {
 		throw new Error("package.json dependencies must contain an object.");
 	}
 
+	// Compare the declared names with the approved allow-list.
 	const dependencyNames = Object.keys(dependencies);
+	// The dependencies outside the approved allow-list.
 	const failures = findUnexpectedDependencies(dependencyNames, allowedDependencies);
 
+	// The summary for this package.
 	const result = {
 		checked: dependencyNames.length,
 		failures,

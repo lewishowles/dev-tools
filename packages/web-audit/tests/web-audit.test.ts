@@ -15,6 +15,7 @@ interface CapturedCliOutput {
  *
  * @param  {string}  filename
  *     Fixture filename relative to the package fixtures directory.
+ *
  * @returns  {string}
  *     Absolute fixture path.
  */
@@ -27,6 +28,7 @@ function fixturePath(filename: string): string {
  *
  * @param  {string[]}  argumentsList
  *     Arguments passed to runCli.
+ *
  * @returns  {Promise<CapturedCliOutput>}
  *     Exit code and captured stdout/stderr.
  */
@@ -48,9 +50,11 @@ async function captureCli(argumentsList: string[]): Promise<CapturedCliOutput> {
 
 		return true;
 	}) as typeof process.stderr.write;
+
 	console.log = (...argumentsList: unknown[]) => {
 		stdout.push(`${argumentsList.map(String).join(" ")}\n`);
 	};
+
 	console.error = (...argumentsList: unknown[]) => {
 		stderr.push(`${argumentsList.map(String).join(" ")}\n`);
 	};
