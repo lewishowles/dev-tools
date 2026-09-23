@@ -4,7 +4,6 @@ requires-python = ">=3.11"
 
 [manifest]
 members = [
-    "agents-progress",
     "dev-tools",
     "friction",
     "image-for-agent",
@@ -12,16 +11,6 @@ members = [
     "project-checks",
     "review-feedback",
 ]
-
-[[package]]
-name = "agents-progress"
-source = { editable = "packages/progress" }
-dependencies = [
-    { name = "prompt-toolkit" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "prompt-toolkit", specifier = ">=3.0" }]
 
 [[package]]
 name = "colorama"
