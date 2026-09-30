@@ -9,7 +9,6 @@ members = [
     "packages/image-for-agent",
     "packages/page-to-markdown",
     "packages/project-checks",
-    "packages/review-feedback",
 ]
 
 [dependency-groups]
@@ -35,5 +34,4 @@ pythonpath = [
     "packages/image-for-agent/src",
     "packages/page-to-markdown/src",
     "packages/project-checks/src",
-    "packages/review-feedback/src",
 ]
