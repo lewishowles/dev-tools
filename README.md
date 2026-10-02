@@ -5,7 +5,6 @@ A workspace of small, independently versioned CLI tools for accessibility auditi
 ## Packages
 
 - [`packages/web-audit`](packages/web-audit/README.md): rendered-DOM accessibility auditing using TypeScript and Playwright.
-- [`packages/page-to-markdown`](packages/page-to-markdown/README.md): URL/file/HTML to compact Markdown using Python.
 - [`packages/pkg-checks`](packages/pkg-checks/README.md): package validity checks using TypeScript.
 
 ## Workspaces
