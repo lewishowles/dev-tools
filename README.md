@@ -7,11 +7,8 @@ A workspace of small, independently versioned CLI tools for accessibility auditi
 - [`packages/web-audit`](packages/web-audit/README.md): rendered-DOM accessibility auditing using TypeScript and Playwright.
 - [`packages/pkg-checks`](packages/pkg-checks/README.md): package validity checks using TypeScript.
 
-## Workspaces
+## Workspace
 
-Two workspaces share this repo root:
+The Bun workspace in `package.json` contains the packages in this repository.
 
-- **Bun** (`package.json`) for the TypeScript packages.
-- **uv** (`pyproject.toml`) for the Python packages.
-
-Packages compose via stdin/stdout across the language boundary, not shared libraries.
+Packages compose via stdin/stdout, not shared libraries.
